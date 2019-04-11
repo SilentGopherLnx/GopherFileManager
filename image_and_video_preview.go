@@ -567,6 +567,7 @@ type IconUpdateable struct {
 	pixbuf_preview *gdk.Pixbuf
 	basic_mode     bool
 	folder         bool
+	oldbuf         bool //have loaded old preview
 }
 
 func IconThread(icon_chan chan *IconUpdateable, qu *SyncQueue, thread_id int) { // qu *queue.Queue

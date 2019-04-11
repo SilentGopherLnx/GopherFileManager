@@ -76,6 +76,8 @@ var num_works *AInt = NewAtomicInt(0)
 
 func init() {
 
+	AboutVersion(AppVersion())
+
 	//Prln(StringFill("123456", 5))
 
 	//TestLinuxPath()
@@ -603,6 +605,7 @@ func listFiles(g *gtk.Grid, lpath string) {
 		isapp := false
 		islink := FileIsLink(f)
 		isregular := f.Mode().IsRegular() || islink
+		oldbuf := false
 
 		if islink {
 			isdir = FileLinkIsDir(lpath2 + fname)
@@ -646,6 +649,7 @@ func listFiles(g *gtk.Grid, lpath string) {
 				hashpix := ReadHashPixbuf(filepathfinal, ZOOM_SIZE)
 				if hashpix != nil {
 					iconwithlabel.SetIconPixPuf(hashpix)
+					oldbuf = true
 				} else {
 					iconwithlabel.SetIconPixPuf(GetIcon_PixBif(ZOOM_SIZE, "", true))
 				}
@@ -664,7 +668,9 @@ func listFiles(g *gtk.Grid, lpath string) {
 				if path.GetReal() != opt.GetHashFolder() {
 					pixbuf_icon = ReadHashPixbuf(filepathfinal, ZOOM_SIZE)
 				}
-				if pixbuf_icon == nil {
+				if pixbuf_icon != nil {
+					oldbuf = true
+				} else {
 					pixbuf_icon = GetIcon_PixBif(ZOOM_SIZE, tfile, false)
 				}
 			}
@@ -732,7 +738,7 @@ func listFiles(g *gtk.Grid, lpath string) {
 			fullname := FolderPathEndSlash(path.GetReal() + fname)
 			if with_folders_preview && !single_thread_protocol && fullname != opt.GetHashFolder() {
 				iconwithlabel.SetLoading(true)
-				arr_render = append(arr_render, &IconUpdateable{icon: iconwithlabel.icon, loading: iconwithlabel.icon_loading, fullname: fullname, fname: fname, tfile: "", basic_mode: single_thread_protocol, folder: true})
+				arr_render = append(arr_render, &IconUpdateable{icon: iconwithlabel.icon, loading: iconwithlabel.icon_loading, fullname: fullname, fname: fname, tfile: "", basic_mode: single_thread_protocol, folder: true, oldbuf: oldbuf})
 			}
 		} else {
 			/*if !single_thread_protocol {
@@ -744,7 +750,7 @@ func listFiles(g *gtk.Grid, lpath string) {
 					fullname := path.GetReal() + fname
 					if FileIsPreviewAbble(tfile) && path.GetReal() != opt.GetHashFolder() {
 						iconwithlabel.SetLoading(true)
-						arr_render = append(arr_render, &IconUpdateable{icon: iconwithlabel.icon, loading: iconwithlabel.icon_loading, fullname: fullname, fname: fname, tfile: tfile, basic_mode: single_thread_protocol, folder: false})
+						arr_render = append(arr_render, &IconUpdateable{icon: iconwithlabel.icon, loading: iconwithlabel.icon_loading, fullname: fullname, fname: fname, tfile: tfile, basic_mode: single_thread_protocol, folder: false, oldbuf: oldbuf})
 					}
 				}
 			}
@@ -757,21 +763,21 @@ func listFiles(g *gtk.Grid, lpath string) {
 
 	go func() {
 		SleepMS(5)
-		for k := 0; k < 2; k++ {
-			fold := false
-			if k == 1 {
-				fold = true
-			}
-			for j := 0; j < len(arr_render); j++ {
-				if arr_render[j].folder == fold {
-					if new_ind == path_updated.Get() {
-						if single_thread_protocol {
-							icon_chan1 <- arr_render[j]
-						} else {
-							icon_chanN <- arr_render[j]
+		for b := 0; b < 2; b++ {
+			oldbuf := b == 1
+			for k := 0; k < 2; k++ {
+				fold := k == 1
+				for j := 0; j < len(arr_render); j++ {
+					if arr_render[j].folder == fold && arr_render[j].oldbuf == oldbuf {
+						if new_ind == path_updated.Get() {
+							if single_thread_protocol {
+								icon_chan1 <- arr_render[j]
+							} else {
+								icon_chanN <- arr_render[j]
+							}
 						}
+						RuntimeGosched()
 					}
-					RuntimeGosched()
 				}
 			}
 		}
