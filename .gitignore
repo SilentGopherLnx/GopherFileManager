@@ -2,3 +2,4 @@ GopherFileManager
 test_dir/*
 options.cfg
 *.sh
+.fuse*

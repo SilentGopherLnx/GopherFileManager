@@ -19,14 +19,20 @@ func Menu_CurrentFolder(menu *gtk.Menu, folderpath string) {
 	GTK_MenuItem(menu, "Paste (Ctrl+V)", func_paste)
 	submenu_new := GTK_MenuSub(menu, "New")
 	GTK_MenuItem(submenu_new, "Folder", func() {
-		create_new(folderpath, true)
+		name_created := create_new(folderpath, true)
 		listFiles(gGFiles, folderpath)
+		Dialog_FileRename(win, folderpath, name_created, func() {
+			listFiles(gGFiles, folderpath)
+		})
 	})
 	GTK_MenuSeparator(submenu_new)
 	GTK_MenuItem(submenu_new, "Text File", nil)
 	GTK_MenuItem(submenu_new, "Empty File", func() {
-		create_new(folderpath, false)
+		name_created := create_new(folderpath, false)
 		listFiles(gGFiles, folderpath)
+		Dialog_FileRename(win, folderpath, name_created, func() {
+			listFiles(gGFiles, folderpath)
+		})
 	})
 	GTK_MenuSeparator(menu)
 	submenu_refolder := GTK_MenuSub(menu, "Reopen folder")

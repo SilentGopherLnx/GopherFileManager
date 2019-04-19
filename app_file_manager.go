@@ -78,12 +78,7 @@ func init() {
 
 	AboutVersion(AppVersion())
 
-	//Prln(StringFill("123456", 5))
-
 	//TestLinuxPath()
-
-	// inf, _ := FileInfo("/home/nike/.steam/root/")
-	// Prln(B2S_YN(FileIsLink(inf)))
 
 	InitOptions()
 
@@ -101,11 +96,9 @@ func init() {
 
 	qu = NewSyncQueue()
 
-	//path = "/mnt/dm-1/"
 	with_folders_preview = true
 	with_files_preview = true
 	//with_destroy = false
-
 }
 
 func main() {
