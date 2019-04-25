@@ -568,6 +568,7 @@ type IconUpdateable struct {
 	basic_mode     bool
 	folder         bool
 	oldbuf         bool //have loaded old preview
+	success        bool
 }
 
 func IconThread(icon_chan chan *IconUpdateable, qu *SyncQueue, thread_id int) { // qu *queue.Queue
@@ -593,6 +594,9 @@ func IconThread(icon_chan chan *IconUpdateable, qu *SyncQueue, thread_id int) { 
 				}
 			}
 			if ok {
+				msg.success = true
+				qu.Append(msg)
+			} else {
 				qu.Append(msg)
 			}
 		}

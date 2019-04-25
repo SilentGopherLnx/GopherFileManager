@@ -10,7 +10,7 @@ import (
 
 func Dialog_FileRename(w *gtk.Window, fpath string, fname_old string, upd func()) {
 	dial, box := GTK_Dialog(w, "Rename: "+fname_old)
-	dial.SetDefaultSize(350, 100)
+	dial.SetDefaultSize(350, 90)
 
 	inpname, _ := gtk.EntryNew()
 	inpname.SetText(fname_old)
@@ -41,6 +41,13 @@ func Dialog_FileRename(w *gtk.Window, fpath string, fname_old string, upd func()
 	box.Add(inpname)
 	box.Add(lbl_err)
 	box.Add(btnok)
+
+	// box.SetSpacing(0)
+	// box.SetBorderWidth(0)
+	// box.SetMarginBottom(0)
+
+	// dial.SetBorderWidth(0)
+	// dial.SetMarginBottom(0)
 
 	dial.ShowAll()
 	dial.Run()

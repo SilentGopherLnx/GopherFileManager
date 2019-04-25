@@ -70,7 +70,7 @@ func Menu_FilesContextMenu(menu *gtk.Menu, fpath string, fname string, isdir boo
 	if isdir {
 		GTK_MenuItem(rightmenu, "Open in new Window", func() {
 			menu.Cancel()
-			go ExecCommandBash("" + ExecQuote(AppRunArgs()[0]) + " " + ExecQuote(fpath2+fname) + "")
+			go ExecCommandBash("" + ExecQuote(AppRunArgs()[0]) + " " + ExecQuote(fpath2+fname) + Select_String(win.IsMaximized(), " -max", ""))
 		})
 		//if(islink){
 		GTK_MenuItem(rightmenu, "Open with eval symlink", nil)

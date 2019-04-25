@@ -119,6 +119,10 @@ func main() {
 	win.SetDefaultSize(1200, 800)
 	win.SetPosition(gtk.WIN_POS_CENTER)
 
+	if AppHasArg("-max") {
+		win.Maximize()
+	}
+
 	win.Connect("destroy", func() {
 		AppExit(0)
 	})
@@ -892,8 +896,12 @@ func MainThread() {
 			}
 			if ok && GTK_WidgetExist(w.icon) {
 				//Prln("pixbufset")
-				w.loading.SetFromPixbuf(nil)
-				w.icon.SetFromPixbuf(w.pixbuf_preview)
+				if w.success {
+					w.loading.SetFromPixbuf(nil)
+					w.icon.SetFromPixbuf(w.pixbuf_preview)
+				} else {
+					w.loading.SetFromPixbuf(pixbuf_loading_err)
+				}
 			}
 			//Prln("it2")
 		} else {

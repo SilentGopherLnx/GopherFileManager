@@ -14,7 +14,7 @@ import (
 	//"github.com/gotk3/gotk3/pango"
 )
 
-var pixbuf_link, pixbuf_notread, pixbuf_mount, pixbuf_loading *gdk.Pixbuf
+var pixbuf_link, pixbuf_notread, pixbuf_mount, pixbuf_loading, pixbuf_loading_err *gdk.Pixbuf
 var hid map[int]*gdk.Pixbuf
 
 const BACK_GRAY_VISIBLE float64 = 0.8
@@ -32,6 +32,9 @@ func init() {
 	appdir := FolderLocation_App()
 	bb, _ := FileBytesRead(appdir + "gui/emblem_loading.png")
 	pixbuf_loading = GTK_PixBuf_From_Bytes(bb, "png")
+
+	bb, _ = FileBytesRead(appdir + "gui/emblem_loading_error.png")
+	pixbuf_loading_err = GTK_PixBuf_From_Bytes(bb, "png")
 
 	bb, _ = FileBytesRead(appdir + "gui/emblem_link.png")
 	pixbuf_link = GTK_PixBuf_From_Bytes(bb, "png")

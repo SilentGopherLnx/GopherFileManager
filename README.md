@@ -7,6 +7,13 @@ Source code is so bad now. It will be added later... Look here for executable fi
 
 ![screenshot](https://github.com/SilentGopherLnx/screenshots_and_binaries/blob/master/SCREENS_GopherFileManagerFileMoverGui/manager_01.png)
 
+![screenshot](https://github.com/SilentGopherLnx/screenshots_and_binaries/blob/master/SCREENS_GopherFileManagerFileMoverGui/manager_02.png)
+
+![screenshot](https://github.com/SilentGopherLnx/screenshots_and_binaries/blob/master/SCREENS_GopherFileManagerFileMoverGui/manager_03.png)
+
+more screenshoots:
+> https://github.com/SilentGopherLnx/screenshots_and_binaries/tree/master/SCREENS_GopherFileManagerFileMoverGui
+
 # Dependencies for GOPATH:
 1) Golang **GTK3** lib
 https://github.com/gotk3/gotk3
@@ -35,7 +42,7 @@ https://github.com/SilentGopherLnx/FileMoverGui
 2) **ffmpeg** for **video trumbnails**
 > sudo apt-get install ffmpeg
 
-3) **smbclient** for getting smb folders list of one server
+3) **smbclient** for getting smb folders list of one server (currently not implemented)
 > sudo apt install smbclient
 
 **programs below usualy included in linux** (if you not have them, you should install it):
@@ -47,7 +54,7 @@ https://github.com/SilentGopherLnx/FileMoverGui
 6) udevadm - for usb devices names (mtp protocol)
 
 # Status:
-App is under development and not versionized
+App is under development and not versionized (you can see version if run with one argument "-v")
 
 **Not all functions are implemented and realised as planned!** need to do:
 - multiple files select for copy/cut/paste/delete/info
