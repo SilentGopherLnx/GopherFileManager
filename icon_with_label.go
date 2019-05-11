@@ -190,21 +190,33 @@ func NewFileIconBlock(filepath string, filename string, wid int, isdir bool, isl
 
 	evBox, _ := gtk.EventBoxNew()
 	evBox.Add(main)
-	evBox.SetMarginStart(b2)
-	evBox.SetMarginEnd(b2)
-	evBox.SetMarginTop(b2)
-	evBox.SetMarginBottom(b2)
+	// evBox.SetMarginStart(b2)
+	// evBox.SetMarginEnd(b2)
+	// evBox.SetMarginTop(b2)
+	// evBox.SetMarginBottom(b2)
 	evBox.Connect("draw", func(g *gtk.EventBox, ctx *cairo.Context) {
-		if !isHidden {
-			//ctx.SetSourceRGBA(0, 0, 255, 1) //BACK_GRAY_VISIBLE
-			ctx.SetSourceRGBA(BACK_GRAY_VISIBLE, BACK_GRAY_VISIBLE, BACK_GRAY_VISIBLE, 1)
+		if check.GetActive() {
+			ctx.SetSourceRGBA(0.85, 0.9, 0.95, 1.0) // BLUE LIGHT
 		} else {
-			ctx.SetSourceRGBA(BACK_GRAY_HIDDEN, BACK_GRAY_HIDDEN, BACK_GRAY_HIDDEN, 1)
+			if !isHidden {
+				//ctx.SetSourceRGBA(0, 0, 255, 1) //BACK_GRAY_VISIBLE
+				ctx.SetSourceRGBA(BACK_GRAY_VISIBLE, BACK_GRAY_VISIBLE, BACK_GRAY_VISIBLE, 1)
+			} else {
+				ctx.SetSourceRGBA(BACK_GRAY_HIDDEN, BACK_GRAY_HIDDEN, BACK_GRAY_HIDDEN, 1)
+			}
 		}
 		aw := g.GetAllocatedWidth()
 		ah := g.GetAllocatedHeight()
 		ctx.Rectangle(0, 0, float64(aw-2), float64(ah-2))
 		ctx.Fill()
+		// tx2, ty2, _ := evBox.TranslateCoordinates(gGFiles, 0, 0)
+		// Prln(filename + " [" + I2S(tx2) + "/" + I2S(ty2) + "]")
+		// ctx.SetSourceRGBA(0.04, 0.07, 0.8, 1.0) // BLUE
+		// ctx.Rectangle(float64(select_x1+tx2), float64(select_y1-0+ty2), float64(select_x2-select_x1), float64(select_y2-select_y1))
+		// ctx.Fill()
+	})
+	check.Connect("button-release-event", func() {
+		evBox.QueueDraw()
 	})
 
 	if isdir {
@@ -216,9 +228,20 @@ func NewFileIconBlock(filepath string, filename string, wid int, isdir bool, isl
 	tfile := NewLinuxPath(isdir)
 	tfile.SetReal(filepath + filename)
 	getter := func() []*LinuxPath {
-		return []*LinuxPath{tfile}
+		list := []*LinuxPath{}
+		fnames := FileSelector_GetList()
+		if len(fnames) > 1 {
+			for j := 0; j < len(fnames); j++ {
+				file1 := NewLinuxPath(false) //??
+				file1.SetReal(filepath + fnames[j])
+				list = append(list, file1)
+			}
+		} else {
+			list = []*LinuxPath{tfile}
+		}
+		return list
 	}
-	GTK_CopyPasteDnd_SetIconSouce(evBox, icon, getter)
+	GTK_CopyPasteDnd_SetIconSource(evBox, icon, getter)
 
 	block := &GtkFileIconBlock{
 		ebox:         evBox,
@@ -270,6 +293,39 @@ func (i *GtkFileIconBlock) GetFileName() string {
 
 func (i *GtkFileIconBlock) GetWidget() gtk.IWidget {
 	return i.ebox
+}
+
+func (i *GtkFileIconBlock) IsClickedIn(x0, y0 int) bool {
+	tx0, ty0, _ := i.ebox.TranslateCoordinates(gGFiles, 0, 0)
+	tw := i.ebox.GetAllocatedWidth()
+	th := i.ebox.GetAllocatedHeight()
+	tx0 += BORDER_SIZE
+	ty0 += BORDER_SIZE
+	return x0 > tx0 && x0 < tx0+tw && y0 > ty0 && y0 < ty0+th
+}
+
+func (i *GtkFileIconBlock) IsInSelectRect(x1, y1, x2, y2 int) bool {
+	tx0, ty0, _ := i.ebox.TranslateCoordinates(gGFiles, 0, 0)
+	tw := i.ebox.GetAllocatedWidth()
+	th := i.ebox.GetAllocatedHeight()
+	tx0 += BORDER_SIZE
+	ty0 += BORDER_SIZE
+	checker := func(x0, y0, x1, y1, x2, y2 int) bool {
+		return x0 > MINI(x1, x2) && x0 < MAXI(x1, x2) && y0 > MINI(y1, y2) && y0 < MAXI(y1, y2)
+	}
+	r1 := checker(tx0, ty0, x1, y1, x2, y2)
+	r2 := checker(tx0+tw, ty0, x1, y1, x2, y2)
+	r3 := checker(tx0, ty0+th, x1, y1, x2, y2)
+	r4 := checker(tx0+tw, ty0+th, x1, y1, x2, y2)
+	return r1 || r2 || r3 || r4
+}
+
+func (i *GtkFileIconBlock) SetSelected(v bool) {
+	v0 := i.check.GetActive()
+	if v0 != v {
+		i.check.SetActive(v)
+		i.ebox.QueueDraw()
+	}
 }
 
 func (i *GtkFileIconBlock) Destroy() {

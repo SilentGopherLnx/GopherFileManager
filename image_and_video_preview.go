@@ -506,23 +506,25 @@ func replace_mime_images(folderpath string, files []os.FileInfo, imgs []image.Im
 									zoom_size3 := zoom_size2 - zoom_size/32
 									w := img_new.Bounds().Max.X
 									h := img_new.Bounds().Max.Y
-									max_old := MAXI(w, h)
-									w_new := w
-									h_new := h
-									var img_new2 *image.RGBA
-									if max_old > zoom_size3 {
-										w_new = MAXI(1, zoom_size3*w*2/max_old)
-										h_new = MAXI(1, zoom_size3*h*2/max_old)
-										img_new = ImageResizeNearest(img_new, w_new, h_new)
-										img_new2 = image.NewRGBA(image.Rect(0, 0, zoom_size2*2, zoom_size2*2))
-										ImageAddOver(img_new2, img_new, zoom_size2-w_new/2, zoom_size2-h_new/2)
-										img_new2 = ImageResizeHalfNice(img_new2)
-									} else {
-										img_new2 = image.NewRGBA(image.Rect(0, 0, zoom_size2, zoom_size2))
-										ImageAddOver(img_new2, img_new, (zoom_size2-w_new)/2, (zoom_size2-h_new)/2)
+									if w > 1 && h > 1 {
+										max_old := MAXI(w, h)
+										w_new := w
+										h_new := h
+										var img_new2 *image.RGBA
+										if max_old > zoom_size3 {
+											w_new = MAXI(1, zoom_size3*w*2/max_old)
+											h_new = MAXI(1, zoom_size3*h*2/max_old)
+											img_new = ImageResizeNearest(img_new, w_new, h_new)
+											img_new2 = image.NewRGBA(image.Rect(0, 0, zoom_size2*2, zoom_size2*2))
+											ImageAddOver(img_new2, img_new, zoom_size2-w_new/2, zoom_size2-h_new/2)
+											img_new2 = ImageResizeHalfNice(img_new2)
+										} else {
+											img_new2 = image.NewRGBA(image.Rect(0, 0, zoom_size2, zoom_size2))
+											ImageAddOver(img_new2, img_new, (zoom_size2-w_new)/2, (zoom_size2-h_new)/2)
+										}
+										exist = true
+										imgs2 = append(imgs2, img_new2)
 									}
-									exist = true
-									imgs2 = append(imgs2, img_new2)
 								} else {
 									Prln("??" + f.Name())
 								}
@@ -530,8 +532,6 @@ func replace_mime_images(folderpath string, files []os.FileInfo, imgs []image.Im
 						}
 						if StringInArray(tfile, MIME_VIDEO) > -1 {
 							zoom_size2 := ZoomSmall(zoom_size)
-							// w_new := zoom_size2 - 2
-							// h_new := w_new * 9 / 16
 							fbytes := GetVideoPreviewBytes(folderpath+f.Name(), zoom_size2)
 							if fbytes != nil && len(*fbytes) > 0 {
 								img_new := ImageDecode(fbytes)
@@ -539,9 +539,11 @@ func replace_mime_images(folderpath string, files []os.FileInfo, imgs []image.Im
 									img_new2 := image.NewRGBA(image.Rect(0, 0, zoom_size2, zoom_size2))
 									w_new := img_new.Bounds().Max.X
 									h_new := img_new.Bounds().Max.Y
-									ImageAddOver(img_new2, img_new, (zoom_size2-w_new)/2, (zoom_size2-h_new)/2)
-									exist = true
-									imgs2 = append(imgs2, img_new2)
+									if w_new >= 8 && h_new >= 8 {
+										ImageAddOver(img_new2, img_new, (zoom_size2-w_new)/2, (zoom_size2-h_new)/2)
+										exist = true
+										imgs2 = append(imgs2, img_new2)
+									}
 								}
 							}
 						}

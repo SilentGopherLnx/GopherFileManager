@@ -8,7 +8,7 @@ import (
 	"github.com/gotk3/gotk3/gtk"
 )
 
-func Menu_CurrentFolder(menu *gtk.Menu, folderpath string) {
+func GTKMenu_CurrentFolder(menu *gtk.Menu, folderpath string) {
 	paste_list := LinuxClipBoard_PasteFiles()
 	var func_paste func() = nil
 	if len(paste_list) > 0 {
@@ -61,7 +61,7 @@ func Menu_CurrentFolder(menu *gtk.Menu, folderpath string) {
 	GTK_MenuItem(menu, "Info", nil)
 }
 
-func Menu_FilesContextMenu(menu *gtk.Menu, fpath string, fname string, isdir bool, isapp bool) {
+func GTKMenu_File(menu *gtk.Menu, fpath string, fname string, isdir bool, isapp bool) {
 	fpath2 := FolderPathEndSlash(fpath)
 	ext_mime := FileMIME(fpath2 + fname)
 	app_mime := AppMIME(ext_mime)
@@ -85,9 +85,6 @@ func Menu_FilesContextMenu(menu *gtk.Menu, fpath string, fname string, isdir boo
 		GTK_MenuItem(submenu_openwith, "HEX Editor", nil)
 		GTK_MenuItem(submenu_openwith, "Archive", nil)
 		GTK_MenuItem(submenu_openwith, "Copy image to clipboard", nil)
-		GTK_MenuItem(submenu_openwith, "Other...", func() {
-			//gtk.AppChooserDialogNewForContentType()
-		})
 		GTK_MenuSeparator(submenu_openwith)
 		for j := 0; j < len(apps_mime); j++ {
 			app_alt := apps_mime[j]
@@ -96,7 +93,7 @@ func Menu_FilesContextMenu(menu *gtk.Menu, fpath string, fname string, isdir boo
 			})
 		}
 		GTK_MenuSeparator(submenu_openwith)
-		GTK_MenuItem(submenu_openwith, "?", nil)
+		GTK_MenuItem(submenu_openwith, "Other?...", nil) // //gtk.AppChooserDialogNewForContentType()
 
 		submenu_runas := GTK_MenuSub(rightmenu, "Run AS")
 		GTK_MenuItem(submenu_runas, "SUDO", nil)
@@ -108,29 +105,23 @@ func Menu_FilesContextMenu(menu *gtk.Menu, fpath string, fname string, isdir boo
 
 	GTK_MenuSeparator(rightmenu)
 	GTK_MenuItem(rightmenu, "Cut (Ctrl+X)", func() {
-		copied := NewLinuxPath(false) //??
-		copied.SetReal(fpath2 + fname)
-		Prln("cut: " + copied.GetUrl())
-		LinuxClipBoard_CopyFiles([]*LinuxPath{copied}, true)
+		file1 := NewLinuxPath(false) //??
+		file1.SetReal(fpath2 + fname)
+		Prln("cut: " + file1.GetUrl())
+		LinuxClipBoard_CopyFiles([]*LinuxPath{file1}, true)
 	})
 	GTK_MenuItem(rightmenu, "Copy (Ctrl+C)", func() {
-		copied := NewLinuxPath(false) //??
-		copied.SetReal(fpath2 + fname)
-		Prln("copy: " + copied.GetUrl())
-		LinuxClipBoard_CopyFiles([]*LinuxPath{copied}, false)
+		file1 := NewLinuxPath(false) //??
+		file1.SetReal(fpath2 + fname)
+		Prln("copy: " + file1.GetUrl())
+		LinuxClipBoard_CopyFiles([]*LinuxPath{file1}, false)
 	})
-	var del_func func() = nil
-	//if !isdir {
-	del_func = func() {
-		Dialog_FileDelete(win, fpath, fname, func() {
-			listFiles(gGFiles, fpath2)
-		})
-	}
-	//}
-
-	//item :=
-
-	GTK_MenuItemIcon(rightmenu, "Delete (Del)", "delete", del_func)
+	GTK_MenuItemIcon(rightmenu, "Delete (Del)", "delete", func() {
+		file1 := NewLinuxPath(false) //??
+		file1.SetReal(fpath2 + fname)
+		Prln("del: " + file1.GetUrl())
+		RunFileOperaion([]*LinuxPath{file1}, nil, OPER_DELETE)
+	})
 
 	//item = item
 
@@ -155,13 +146,39 @@ func Menu_FilesContextMenu(menu *gtk.Menu, fpath string, fname string, isdir boo
 	}
 	if isdir {
 		GTK_MenuItem(rightmenu, "Add To Favorites", nil)
+		GTK_MenuItem(rightmenu, "Clear inside", nil)
 	}
 	GTK_MenuItem(rightmenu, "Info ["+ext_mime+"]", func() {
 		Dialog_FileInfo(win, fpath2, fname)
 	})
 }
 
-func GTK_MainMenu(win *gtk.Window) *gtk.MenuBar {
+func GTKMenu_Files(menu *gtk.Menu, fpath string, fnames []string, isdir bool, isapp bool) {
+	fpath2 := FolderPathEndSlash(fpath)
+	list := []*LinuxPath{}
+	for j := 0; j < len(fnames); j++ {
+		file1 := NewLinuxPath(false) //??
+		file1.SetReal(fpath2 + fnames[j])
+		list = append(list, file1)
+	}
+	GTK_MenuItem(rightmenu, "Cut (Ctrl+X)", func() {
+		Prln("cut: " + I2S(len(fnames)) + "files")
+		LinuxClipBoard_CopyFiles(list, true)
+	})
+	GTK_MenuItem(rightmenu, "Copy (Ctrl+C)", func() {
+		Prln("copy: " + I2S(len(fnames)) + "files")
+		LinuxClipBoard_CopyFiles(list, false)
+	})
+	GTK_MenuItemIcon(rightmenu, "Delete (Del)", "delete", func() {
+		RunFileOperaion(list, nil, OPER_DELETE)
+	})
+	GTK_MenuSeparator(rightmenu)
+	GTK_MenuItem(rightmenu, "Info", func() {
+		//Dialog_FileInfo(win, fpath2, fname)
+	})
+}
+
+func GTKMenu_Main(win *gtk.Window) *gtk.MenuBar {
 	menuBar, _ := gtk.MenuBarNew()
 	submenu_file := GTK_MenuSub(menuBar, "Commands")
 	GTK_MenuItem(submenu_file, "New window", nil)
@@ -179,7 +196,7 @@ func GTK_MainMenu(win *gtk.Window) *gtk.MenuBar {
 	})
 
 	submenu_edit := GTK_MenuSub(menuBar, "Current Folder")
-	Menu_CurrentFolder(submenu_edit, path.GetReal())
+	GTKMenu_CurrentFolder(submenu_edit, path.GetReal())
 
 	submenu_other := GTK_MenuSub(menuBar, "Info")
 	GTK_MenuItem(submenu_other, "Help", nil)

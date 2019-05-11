@@ -76,6 +76,8 @@ var num_works *AInt = NewAtomicInt(0)
 
 func init() {
 
+	RuntimeLockOSThread()
+
 	AboutVersion(AppVersion())
 
 	//TestLinuxPath()
@@ -113,6 +115,9 @@ func main() {
 	if err != nil {
 		Prln("Unable to create window:") // + err)
 	}
+
+	GTK_ColorsLoad(win)
+
 	uid, _, _ := GetPC_UserUidLoginName()
 	sudo := Select_String(LinuxRoot_Check() == 1, "[root"+uid+"] ", "")
 	win.SetTitle(sudo + "GopherFileManager")
@@ -147,11 +152,15 @@ func main() {
 		gInpPath.SetText(path.GetVisual())
 		listFiles(gGFiles, path.GetReal())
 	})
+	gBtnUp.SetCanFocus(false)
 
 	gInpPath, _ = gtk.EntryNew()
 	gInpPath.SetText(path.GetVisual())
 	gInpPath.SetHExpand(true)
 	gInpPath.SetHAlign(gtk.ALIGN_FILL)
+	gInpPath.Connect("button-press-event", func() {
+		gInpPath.SetCanFocus(true)
+	})
 
 	gBtnRefresh, _ = gtk.ButtonNewWithLabel("Reload")
 	//img2 := GTK_Image_From_File(appdir+"gui/button_reload.png", "png")
@@ -163,6 +172,7 @@ func main() {
 		path.SetVisual(tpath)
 		listFiles(gGFiles, path.GetReal())
 	})
+	gBtnRefresh.SetCanFocus(false)
 
 	// gGTop, _ := gtk.GridNew()
 	// gGTop.SetOrientation(gtk.ORIENTATION_HORIZONTAL)
@@ -209,21 +219,33 @@ func main() {
 	//gGFiles.SetVExpand(true)
 	gGFiles.SetHExpand(true)
 	gGFiles.SetColumnHomogeneous(true)
+	// gGFiles.SetMarginStart(BORDER_SIZE)
+	// gGFiles.SetMarginEnd(BORDER_SIZE * 3 / 2)
+	// gGFiles.SetMarginTop(BORDER_SIZE)
+	// gGFiles.SetMarginBottom(BORDER_SIZE)
+	gGFiles.SetMarginEnd(BORDER_SIZE / 2)
+	gGFiles.SetBorderWidth(uint(BORDER_SIZE))
+	gGFiles.SetColumnSpacing(uint(BORDER_SIZE))
+	gGFiles.SetRowSpacing(uint(BORDER_SIZE))
 
 	//hadjusment:=gtk.AdjustmentNew()
-	sRightScroll, _ = gtk.ScrolledWindowNew(nil, nil)
+	sRightScroll, _ = gtk.ScrolledWindowNew(nil, nil) // g_signal_connect(G_OBJECT(browserscrolledview),"scroll-event",G_CALLBACK(userActive),NULL);
 	sRightScroll.SetVExpand(true)
 	sRightScroll.SetHExpand(true)
 	sRightScroll.Add(gGFiles)
 
 	rightEv, _ := gtk.EventBoxNew()
-	rightEv.Connect("button-press-event", func(_ *gtk.ScrolledWindow, event *gdk.Event) {
-		eventbutton := &gdk.EventButton{event}
-		mousekey := eventbutton.ButtonVal()
-		if mousekey == 3 {
+	rightEv.Connect("draw", func(_ *gtk.ScrolledWindow, ctx *cairo.Context) {
+		_, dy := GTK_ScrollGetValues(sRightScroll)
+		FileSelector_Draw(dy, ctx)
+	})
+	rightEv.Connect("button-press-event", func(_ *gtk.EventBox, event *gdk.Event) {
+		gInpPath.SetCanFocus(false)
+		mousekey, _, _, zone := FileSelector_MousePressed(event, sRightScroll)
+		if mousekey == 3 && zone {
 			if rightmenu == nil || !rightmenu.IsVisible() {
 				rightmenu, _ = gtk.MenuNew()
-				Menu_CurrentFolder(rightmenu, path.GetReal())
+				GTKMenu_CurrentFolder(rightmenu, path.GetReal())
 				rightmenu.ShowAll()
 				rightmenu.PopupAtPointer(event)
 			} else {
@@ -231,6 +253,23 @@ func main() {
 			}
 		}
 	})
+	rightEv.Connect("motion-notify-event", func(_ *gtk.EventBox, event *gdk.Event) {
+		FileSelector_MouseMoved(event, sRightScroll, win.QueueDraw)
+	})
+	rightEv.Connect("button-release-event", func(_ *gtk.EventBox, event *gdk.Event) {
+		FileSelector_MouseRelease(event, sRightScroll, win.QueueDraw)
+	})
+	sRightScroll.SetEvents(int(gdk.ALL_EVENTS_MASK))
+	/*	sn := 0
+		sRightScroll.Connect("scroll-event", func(_ *gtk.ScrolledWindow, event *gdk.Event) {
+			sn++
+			Prln("scroll -" + I2S(sn))
+			if select_x1 > 0 && select_y1 > 0 {
+				eventscroll := &gdk.EventScroll{event}
+				Prln("scroll " + F2S(eventscroll.DeltaY(), 2))
+				//win.QueueDraw()
+			}
+		})*/
 	rightEv.Add(sRightScroll)
 
 	//gGCenter, _ := gtk.GridNew()
@@ -321,7 +360,6 @@ func main() {
 	gCheckDragCopy.SetSensitive(false)
 	gCheckDragCopy.Connect("clicked", func() {
 		//copy_mode = gCheckDragCopy.GetActive()
-
 	})
 
 	gCheckPreviewFolders, _ := gtk.CheckButtonNewWithLabel("preview folders")
@@ -364,7 +402,7 @@ func main() {
 
 	// ================
 
-	menuBar := GTK_MainMenu(win)
+	menuBar := GTKMenu_Main(win)
 
 	// ================
 
@@ -416,127 +454,9 @@ func main() {
 
 }
 
-func listDiscs(g *gtk.Box) {
-
-	GTK_Childs(g, true, true) //arrd :=
-	//Prln("disc_child_len:" + I2S(len(arrd)))
-
-	discs := GetDiscParts(true, true, true, true)
-
-	mountlist = LinuxGetMountList()
-
-	for j, di := range discs {
-		d := di
-		Prln(d.String())
-		p := d.MountPath
-		gDBtn, _ := gtk.ButtonNew() //WithLabel(d.Title + "\n" + d.Model + "\n" + d.PartName)
-		gDBtn.SetHExpand(true)
-		//gDBtn.SetSizeRequest(LEFT_PANEL_SIZE, 32)
-		//gDBtn.SetHAlign(gtk.ALIGN_CENTER)
-		//gDBtn.SetJustify(gtk.JUSTIFY_CENTER)
-		gDBtn.Connect("clicked", func() {
-			//tpath := NewLinuxPath(true)
-			path.SetReal(p)
-			gInpPath.SetText(path.GetVisual())
-			listFiles(gGFiles, path.GetReal())
-		})
-		gDBtn.SetHExpand(false)
-
-		grid, _ := gtk.GridNew()
-		grid.SetHExpand(true)
-
-		lbl1, _ := gtk.LabelNew(d.Title)
-		lbl1.SetJustify(gtk.JUSTIFY_LEFT)
-		lbl1.SetHAlign(gtk.ALIGN_START)
-		GTK_LabelWrapMode(lbl1, 1)
-		lbl1.SetLineWrap(true)
-		grid.Attach(lbl1, 0, 0, 1, 1)
-		lbl1.SetMarkup("<b><u>" + HtmlEscape(d.Title) + "</u></b>")
-
-		lbl2, _ := gtk.LabelNew(d.SpaceTotal)
-		lbl2.SetJustify(gtk.JUSTIFY_RIGHT)
-		lbl2.SetHAlign(gtk.ALIGN_END)
-		//lbl2.SetHExpand(true)
-		grid.Attach(lbl2, 1, 0, 1, 1)
-
-		if j == 0 {
-			lbl1.SetMarkup("<b><u>" + HtmlEscape(StringUp(d.PartName)) + "</u></b>")
-			lbl2.SetText("HOME")
-		}
-
-		extra := StringFind(StringDown(d.PartName), "gvfsd-fuse") > 0
-		if len(StringTrim(d.Model)) > 0 && !extra {
-			lbl3, _ := gtk.LabelNew(d.Model)
-			lbl3.SetJustify(gtk.JUSTIFY_LEFT)
-			lbl3.SetHAlign(gtk.ALIGN_START)
-			lbl3.SetHExpand(true)
-			GTK_LabelWrapMode(lbl3, 1)
-			grid.Attach(lbl3, 0, 1, 2, 1)
-		}
-
-		if j > 0 && d.SpacePercent > -1 {
-			lbl4, _ := gtk.LabelNew(d.PartName)
-			if extra {
-				lbl4.SetText(d.Model)
-			}
-			lbl4.SetJustify(gtk.JUSTIFY_LEFT)
-			lbl4.SetHAlign(gtk.ALIGN_START)
-			lbl4.SetHExpand(true)
-			GTK_LabelWrapMode(lbl4, 1)
-			grid.Attach(lbl4, 0, 2, 1, 1)
-
-			fs := d.Protocol
-			if d.Protocol == "PART" {
-				fs = StringUp(d.FSType)
-			}
-			lbl5, _ := gtk.LabelNew(fs)
-			lbl5.SetMarkup("<u>" + HtmlEscape(fs) + "</u>")
-			lbl5.SetJustify(gtk.JUSTIFY_RIGHT)
-			lbl5.SetHAlign(gtk.ALIGN_END)
-			//lbl4.SetHExpand(true)
-			grid.Attach(lbl5, 1, 2, 1, 1)
-
-			progr, _ := gtk.LevelBarNew() // ProgressBarNew()
-			//progr.SetFraction(float64(d.SpacePercent) / 100.0)
-			progr.SetValue(float64(d.SpacePercent) / 100.0)
-			progr.SetHExpand(true)
-			progr.SetSizeRequest(10, 0)
-
-			grid.Attach(progr, 0, 3, 2, 1)
-		}
-
-		gDBtn.Connect("button-press-event", func(_ *gtk.Button, event *gdk.Event) {
-			eventbutton := &gdk.EventButton{event}
-			mousekey := eventbutton.ButtonVal()
-			switch mousekey {
-			case 3:
-				Prln("right")
-				rightmenu, _ := gtk.MenuNew()
-
-				if !d.Primary && d.SpacePercent >= 0 {
-					GTK_MenuItem(rightmenu, "Eject", nil)
-				}
-				if d.SpacePercent < 0 {
-					GTK_MenuItem(rightmenu, "Remove", nil)
-				}
-				GTK_MenuItem(rightmenu, "Info", nil)
-
-				rightmenu.ShowAll()
-				rightmenu.PopupAtPointer(event) // (evBox, gdk.GDK_GRAVITY_STATIC, gdk.GDK_GRAVITY_STATIC,
-			}
-		})
-
-		gDBtn.Add(grid)
-		//g.Attach(gDBtn, 0, j, 1, 1)
-		g.Add(gDBtn)
-	}
-
-	g.ShowAll()
-}
-
 func listFiles(g *gtk.Grid, lpath string) {
 
-	//sRightScroll.
+	GTK_ScrollReset(sRightScroll)
 
 	fswatcher.Select(lpath)
 
@@ -684,9 +604,8 @@ func listFiles(g *gtk.Grid, lpath string) {
 
 		clicktime := TimeAddMS(TimeNow(), -2000)
 
-		iconwithlabel.ConnectEventBox("button-press-event", func(_ *gtk.EventBox, event *gdk.Event) {
-			eventbutton := &gdk.EventButton{event}
-			mousekey := eventbutton.ButtonVal()
+		iconwithlabel.ConnectEventBox("button-release-event", func(_ *gtk.EventBox, event *gdk.Event) {
+			mousekey, X, Y := GTK_MouseKeyOfEvent(event)
 			switch mousekey {
 			case 1:
 				dt := AbcF(TimeSeconds(clicktime))
@@ -711,7 +630,13 @@ func listFiles(g *gtk.Grid, lpath string) {
 					}
 				} else {
 					clicktime = TimeNow()
+					if X > 20 || Y > 20 {
+						Prln(">>click at file block")
+						FileSelector_ResetChecks()
+						iconwithlabel.SetSelected(true)
+					}
 				}
+				//gGFiles.QueueDraw()
 			case 3:
 				Prln("right")
 				if rightmenu != nil && rightmenu.IsVisible() {
@@ -720,7 +645,12 @@ func listFiles(g *gtk.Grid, lpath string) {
 				}
 				rightmenu, _ = gtk.MenuNew()
 
-				Menu_FilesContextMenu(rightmenu, lpath2, fname, isdir, isapp)
+				sel_list := FileSelector_GetList()
+				if len(sel_list) <= 1 {
+					GTKMenu_File(rightmenu, lpath2, fname, isdir, isapp)
+				} else {
+					GTKMenu_Files(rightmenu, lpath2, sel_list, isdir, isapp)
+				}
 
 				rightmenu.ShowAll()
 				rightmenu.PopupAtPointer(event) // (evBox, gdk.GDK_GRAVITY_STATIC, gdk.GDK_GRAVITY_STATIC,
@@ -868,7 +798,7 @@ func max_icon_n_w() (int, int) {
 	//sScroll.CheckResize()
 	//ww, _ := win.GetPreferredWidth()
 	ww, _ := win.GetSize()
-	real_w := MAXI(16, ww-LEFT_PANEL_SIZE) - 6
+	real_w := MAXI(16, ww-LEFT_PANEL_SIZE) - 6 - BORDER_SIZE*5/2
 	icon_block_max_w := MAXI(16, ZOOM_SIZE+BORDER_SIZE*4)
 	icon_block_max_n := MAXI(1, MAXI(16, real_w)/icon_block_max_w)
 	icon_block_max_w = real_w/icon_block_max_n - BORDER_SIZE*3

@@ -34,6 +34,8 @@ func Dialog_FileRename(w *gtk.Window, fpath string, fname_old string, upd func()
 			} else {
 				lbl_err.SetText("error")
 			}
+		} else {
+			dial.Close()
 		}
 	})
 
@@ -52,27 +54,6 @@ func Dialog_FileRename(w *gtk.Window, fpath string, fname_old string, upd func()
 	dial.ShowAll()
 	dial.Run()
 	dial.Close()
-}
-
-func Dialog_FileDelete(w *gtk.Window, fpath string, fname string, upd func()) {
-	// dial := gtk.MessageDialogNew(w, gtk.DIALOG_MODAL|gtk.DIALOG_DESTROY_WITH_PARENT, gtk.MESSAGE_ERROR, gtk.BUTTONS_OK_CANCEL, "Delete "+fname+"?")
-	// dial.SetTitle("Delete?")
-	// resp := dial.Run()
-	// if resp == gtk.RESPONSE_OK {
-	// 	//FileDelete(FolderPathEndSlash(fpath) + fname)
-	// 	//from_url := []*LinuxPath{}
-	// 	//for j := 0; j < len(dnd_arr); j++ {
-	tpath := NewLinuxPath(false)                     //??
-	tpath.SetReal(FolderPathEndSlash(fpath) + fname) //dnd_arr[j])
-	// 	//from_url = append(from_url, tpath)
-	// 	//}
-	RunFileOperaion([]*LinuxPath{tpath}, nil, "delete")
-
-	// 	SleepMS(500)
-	// 	upd()
-
-	// }
-	// dial.Close()
 }
 
 func Dialog_FileInfo(w *gtk.Window, fpath string, fname string) {

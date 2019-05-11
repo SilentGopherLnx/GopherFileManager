@@ -116,7 +116,7 @@ func (o *OptionsContainer) GetSymlinkEval() bool {
 }
 
 func Dialog_Options(w *gtk.Window) {
-	winw, winh := 650, 300
+	winw, winh := 650, 400
 	win2, err := gtk.WindowNew(gtk.WINDOW_TOPLEVEL)
 	if err != nil {
 		return
@@ -144,7 +144,12 @@ func Dialog_Options(w *gtk.Window) {
 		}
 	}
 
-	win2.Add(grid)
+	scroll, _ := gtk.ScrolledWindowNew(nil, nil)
+	scroll.SetVExpand(true)
+	scroll.SetHExpand(true)
+	scroll.Add(grid)
+
+	win2.Add(scroll)
 
 	win2.Connect("destroy", func() {
 		opt.st.RecordsValues_Save(FolderLocation_App() + OPTIONS_FILE)

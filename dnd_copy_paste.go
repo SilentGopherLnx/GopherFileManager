@@ -11,7 +11,12 @@ import (
 
 const OPER_COPY = "copy"
 const OPER_MOVE = "move"
+const OPER_DELETE = "delete"
 
+// https://github.com/geany/geany/issues/1368
+// GtkAccelGroup *accel_group = gtk_accel_group_new ();
+// gtk_window_add_accel_group (GTK_WINDOW (window), accel_group);
+// gtk_accel_group_connect (accel_group, GDK_KEY_Q, GDK_CONTROL_MASK, 0, g_cclosure_new_swap (G_CALLBACK (hello), window, NULL));
 func GTK_CopyPasteDnd_SetWindowKeyPressed(path *LinuxPath, ev *gdk.Event) {
 	keyEvent := &gdk.EventKey{ev}
 	uint_key := keyEvent.KeyVal()
@@ -19,27 +24,47 @@ func GTK_CopyPasteDnd_SetWindowKeyPressed(path *LinuxPath, ev *gdk.Event) {
 	if keyEvent.State() == gdk.GDK_CONTROL_MASK { // //key:65507 Ctrl
 		if uint_key == gdk.KEY_x { //120
 			Prln("Ctrl+X")
+			GTK_CopyPasteDnd_CopyDel(path.GetReal(), true, false)
 		}
 		if uint_key == gdk.KEY_c { //99
 			Prln("Ctrl+C")
+			GTK_CopyPasteDnd_CopyDel(path.GetReal(), false, false)
 		}
 		if uint_key == gdk.KEY_v { //118
 			Prln("Ctrl+V")
 			GTK_CopyPasteDnd_Paste(path.GetReal())
 		}
+		Prln(I2S(int(uint_key)))
 	} else {
-		// if uint_key ==  gdk.KEY_F2 { //65471
-		// 	Prln("F2")
-		// }
+		if uint_key == gdk.KEY_F2 { //65471
+			Prln("F2")
+		}
 		if uint_key == gdk.KEY_Delete { //65535
 			Prln("Del")
+			GTK_CopyPasteDnd_CopyDel(path.GetReal(), false, true)
 		}
+	}
+}
+
+func GTK_CopyPasteDnd_CopyDel(folderpath string, cut_mode bool, del bool) {
+	fnames := FileSelector_GetList()
+	fpath2 := FolderPathEndSlash(folderpath)
+	list := []*LinuxPath{}
+	for j := 0; j < len(fnames); j++ {
+		file1 := NewLinuxPath(false) //??
+		file1.SetReal(fpath2 + fnames[j])
+		list = append(list, file1)
+	}
+	if !del {
+		LinuxClipBoard_CopyFiles(list, cut_mode)
+	} else {
+		RunFileOperaion(list, nil, OPER_DELETE)
 	}
 }
 
 func GTK_CopyPasteDnd_Paste(folderpath string) {
 	res := LinuxClipBoard_PasteFiles()
-	Prln(res)
+	Prln("GTK_CopyPasteDnd_Paste:" + res)
 	res_arr := StringSplitLines(res)
 	if len(res_arr) > 1 {
 		oper := res_arr[0]
@@ -49,7 +74,7 @@ func GTK_CopyPasteDnd_Paste(folderpath string) {
 			tpath.SetUrl(res_arr[j])
 			res_nocmd = append(res_nocmd, tpath)
 		}
-		RunFileOperaion(res_nocmd, path, StringReplace(oper, "cut", "move"))
+		RunFileOperaion(res_nocmd, path, StringReplace(oper, "cut", OPER_MOVE))
 	}
 	//res = UrlQueryUnescape(res)
 	lines := StringSplitLines(res)
@@ -84,7 +109,7 @@ func GTK_CopyPasteDnd_SetAppDest(w interface {
 	})
 }
 
-func GTK_CopyPasteDnd_SetIconSouce(w interface {
+func GTK_CopyPasteDnd_SetIconSource(w interface {
 	DragSourceSet(gdk.ModifierType, []gtk.TargetEntry, gdk.DragAction)
 	Connect(string, interface{}, ...interface{}) (glib.SignalHandle, error)
 }, icon *gtk.Image, getter func() []*LinuxPath) {

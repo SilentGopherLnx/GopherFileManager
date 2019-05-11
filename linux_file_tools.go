@@ -83,20 +83,24 @@ func RunFileOperaion(from []*LinuxPath, dest *LinuxPath, operation string) {
 	go func() {
 		from_str := ""
 		from_len := len(from)
-		for j := 0; j < from_len; j++ {
-			if j == 0 {
-				from_str = from[j].GetUrl()
-			} else {
-				from_str = from_str + "\n" + from[j].GetUrl()
+		if from_len > 0 {
+			for j := 0; j < from_len; j++ {
+				if j == 0 {
+					from_str = from[j].GetUrl()
+				} else {
+					from_str = from_str + "\n" + from[j].GetUrl()
+				}
 			}
-		}
-		a, b, c := "", "", ""
-		if dest != nil {
-			a, b, c = ExecCommand(opt.GetFileMover(), "-cmd", operation, "-src", from_str, "-dst", dest.GetUrl(), "-buf", I2S(opt.GetMoverBuffer()))
+			a, b, c := "", "", ""
+			if dest != nil {
+				a, b, c = ExecCommand(opt.GetFileMover(), "-cmd", operation, "-src", from_str, "-dst", dest.GetUrl(), "-buf", I2S(opt.GetMoverBuffer()))
+			} else {
+				a, b, c = ExecCommand(opt.GetFileMover(), "-cmd", operation, "-src", from_str) //, "-dst", "/", "-buf", "1")
+			}
+			Prln(a + " # " + b + " # " + c)
 		} else {
-			a, b, c = ExecCommand(opt.GetFileMover(), "-cmd", operation, "-src", from_str) //, "-dst", "/", "-buf", "1")
+			Prln("DELETE LIST EMPTY")
 		}
-		Prln(a + " # " + b + " # " + c)
 	}()
 }
 
