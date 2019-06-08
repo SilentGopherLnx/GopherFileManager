@@ -1,7 +1,7 @@
 package main
 
 func AppVersion() string {
-	return "0.2.0" //manager
+	return "0.2.1" //manager
 }
 
 func AppAuthor() string {

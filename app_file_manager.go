@@ -74,16 +74,13 @@ var fswatcher *FSWatcher
 
 var num_works *AInt = NewAtomicInt(0)
 
+var upd_func func()
+
 func init() {
 
 	RuntimeLockOSThread()
-
 	AboutVersion(AppVersion())
-
-	//TestLinuxPath()
-
 	InitOptions()
-
 	ZOOM_SIZE = opt.GetZoom()
 
 	args := AppRunArgs()
@@ -95,7 +92,6 @@ func init() {
 
 	icon_chanN = make(chan *IconUpdateable)
 	icon_chan1 = make(chan *IconUpdateable)
-
 	qu = NewSyncQueue()
 
 	with_folders_preview = true
@@ -162,15 +158,19 @@ func main() {
 		gInpPath.SetCanFocus(true)
 	})
 
+	upd_func = func() {
+		tpath, _ := gInpPath.GetText()
+		path.SetVisual(tpath)
+		listFiles(gGFiles, path.GetReal())
+	}
+
 	gBtnRefresh, _ = gtk.ButtonNewWithLabel("Reload")
 	//img2 := GTK_Image_From_File(appdir+"gui/button_reload.png", "png")
 	img2 := GTK_Image_From_Name("view-refresh", gtk.ICON_SIZE_BUTTON)
 	gBtnRefresh.SetImage(img2)
 	gBtnRefresh.SetProperty("always-show-image", true)
 	gBtnRefresh.Connect("clicked", func() {
-		tpath, _ := gInpPath.GetText()
-		path.SetVisual(tpath)
-		listFiles(gGFiles, path.GetReal())
+		upd_func()
 	})
 	gBtnRefresh.SetCanFocus(false)
 
@@ -237,11 +237,11 @@ func main() {
 	rightEv, _ := gtk.EventBoxNew()
 	rightEv.Connect("draw", func(_ *gtk.ScrolledWindow, ctx *cairo.Context) {
 		_, dy := GTK_ScrollGetValues(sRightScroll)
-		FileSelector_Draw(dy, ctx)
+		FilesSelector_Draw(dy, ctx)
 	})
 	rightEv.Connect("button-press-event", func(_ *gtk.EventBox, event *gdk.Event) {
 		gInpPath.SetCanFocus(false)
-		mousekey, _, _, zone := FileSelector_MousePressed(event, sRightScroll)
+		mousekey, _, _, zone := FilesSelector_MousePressed(event, sRightScroll)
 		if mousekey == 3 && zone {
 			if rightmenu == nil || !rightmenu.IsVisible() {
 				rightmenu, _ = gtk.MenuNew()
@@ -254,10 +254,10 @@ func main() {
 		}
 	})
 	rightEv.Connect("motion-notify-event", func(_ *gtk.EventBox, event *gdk.Event) {
-		FileSelector_MouseMoved(event, sRightScroll, win.QueueDraw)
+		FilesSelector_MouseMoved(event, sRightScroll, win.QueueDraw)
 	})
 	rightEv.Connect("button-release-event", func(_ *gtk.EventBox, event *gdk.Event) {
-		FileSelector_MouseRelease(event, sRightScroll, win.QueueDraw)
+		FilesSelector_MouseRelease(event, sRightScroll, win.QueueDraw)
 	})
 	sRightScroll.SetEvents(int(gdk.ALL_EVENTS_MASK))
 	/*	sn := 0
@@ -303,36 +303,28 @@ func main() {
 		resize_files_icons()
 	}
 
-	/*gBtnZOOM, _ := gtk.ButtonNewWithLabel("zoom")
-	gBtnZOOM.Connect("clicked", func() {
-		//ZOOM_SIZE = 192 - ZOOM_SIZE
-		ZOOM_SIZE = (ZOOM_SIZE * 2) % (512 - 64)
-		Prln("zoom:" + I2S(ZOOM_SIZE))
-		rezoom()
-	})*/
-
-	spin, _ := gtk.ScaleNewWithRange(gtk.ORIENTATION_HORIZONTAL, 1, 3, 1)
+	za := Constant_ZoomArray()
+	spin, _ := gtk.ScaleNewWithRange(gtk.ORIENTATION_HORIZONTAL, 1, float64(len(za)), 1)
 	spin.SetSizeRequest(90, 30)
 	spin.SetDrawValue(false)
 	//sp.SetSensitive(false)
-	switch ZOOM_SIZE {
-	case 64:
+	zi := IntInArray(ZOOM_SIZE, za)
+	if zi > -1 {
+		spin.SetValue(float64(zi) + 1)
+	} else {
 		spin.SetValue(1)
-	case 128:
-		spin.SetValue(2)
-	case 256:
-		spin.SetValue(3)
 	}
 	spin.Connect("value-changed", func() {
-		sv := RoundF(spin.GetValue())
 		old_zoom := ZOOM_SIZE
-		switch sv {
-		case 1:
-			ZOOM_SIZE = 64
-		case 2:
-			ZOOM_SIZE = 128
-		case 3:
-			ZOOM_SIZE = 256
+		sv := RoundF(spin.GetValue())
+		if sv > 0 && sv < len(za) {
+			ZOOM_SIZE = za[sv-1]
+		} else {
+			if sv < 1 {
+				ZOOM_SIZE = za[0]
+			} else {
+				ZOOM_SIZE = za[len(za)-1]
+			}
 		}
 		//sp.SetDrawValue("x" + I2S(ZOOM_SIZE))
 		if old_zoom != ZOOM_SIZE {
@@ -392,7 +384,8 @@ func main() {
 	//Prln(I2S(int(gdk.KEY_c)))
 
 	win.Connect("key-press-event", func(win *gtk.Window, ev *gdk.Event) {
-		GTK_CopyPasteDnd_SetWindowKeyPressed(path, ev)
+		key, state := GTK_KeyboardKeyOfEvent(ev)
+		GTK_CopyPasteDnd_SetWindowKeyPressed(path, key, state)
 	})
 	// win.Connect("key-release-event", func(win *gtk.Window, ev *gdk.Event) {
 	// 	keyEvent := &gdk.EventKey{ev}
@@ -516,6 +509,8 @@ func listFiles(g *gtk.Grid, lpath string) {
 	var arr_render []*IconUpdateable
 	icon_block_max_n, icon_block_max_w := max_icon_n_w()
 
+	folder_mask := GetIcon_ImageFolder(ZOOM_SIZE)
+
 	for _, f := range files {
 		fname := f.Name()
 		isdir := f.IsDir()
@@ -563,7 +558,7 @@ func listFiles(g *gtk.Grid, lpath string) {
 			if filepathfinal == opt.GetHashFolder() {
 				iconwithlabel.SetIconPixPuf(GetIcon_PixBif_OF(ZOOM_SIZE, PREFIX_DRAWONME+FILE_TYPE_FOLDER_HASH))
 			} else {
-				hashpix := ReadHashPixbuf(filepathfinal, ZOOM_SIZE)
+				hashpix := ReadHashPixbuf(filepathfinal, ZOOM_SIZE, folder_mask)
 				if hashpix != nil {
 					iconwithlabel.SetIconPixPuf(hashpix)
 					oldbuf = true
@@ -583,7 +578,7 @@ func listFiles(g *gtk.Grid, lpath string) {
 				pixbuf_icon = GetIcon_PixBif_OF(ZOOM_SIZE, PREFIX_EXTRA+FILE_TYPE_BIN)
 			} else {
 				if path.GetReal() != opt.GetHashFolder() {
-					pixbuf_icon = ReadHashPixbuf(filepathfinal, ZOOM_SIZE)
+					pixbuf_icon = ReadHashPixbuf(filepathfinal, ZOOM_SIZE, nil)
 				}
 				if pixbuf_icon != nil {
 					oldbuf = true
@@ -632,7 +627,7 @@ func listFiles(g *gtk.Grid, lpath string) {
 					clicktime = TimeNow()
 					if X > 20 || Y > 20 {
 						Prln(">>click at file block")
-						FileSelector_ResetChecks()
+						FilesSelector_ResetChecks()
 						iconwithlabel.SetSelected(true)
 					}
 				}
@@ -645,7 +640,7 @@ func listFiles(g *gtk.Grid, lpath string) {
 				}
 				rightmenu, _ = gtk.MenuNew()
 
-				sel_list := FileSelector_GetList()
+				sel_list := FilesSelector_GetList()
 				if len(sel_list) <= 1 {
 					GTKMenu_File(rightmenu, lpath2, fname, isdir, isapp)
 				} else {

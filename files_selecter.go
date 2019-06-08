@@ -11,17 +11,22 @@ import (
 var select_mode bool
 var select_x1, select_y1, select_x2, select_y2 int
 
-func FileSelector_GetList() []string {
+func FilesSelector_GetList() []string {
 	arr := []string{}
 	for j := 0; j < len(arr_blocks); j++ {
 		if arr_blocks[j].check.GetActive() {
-			arr = append(arr, arr_blocks[j].fname) // FolderPathEndSlash(arr_blocks[j].fpath)+
+			name := arr_blocks[j].fname
+			if arr_blocks[j].isdir {
+				arr = append(arr, FolderPathEndSlash(name))
+			} else {
+				arr = append(arr, name)
+			}
 		}
 	}
 	return arr
 }
 
-func FileSelector_Draw(dy int, ctx *cairo.Context) {
+func FilesSelector_Draw(dy int, ctx *cairo.Context) {
 	if select_x1 > 0 && select_y1 > 0 && select_x2 > 0 && select_y2 > 0 {
 		c := GTK_ColorOfSelected()
 		ctx.SetSourceRGBA(c[0], c[1], c[2], 1.0) //0.4, 0.7, 0.8, 1.0) // BLUE DARK
@@ -30,7 +35,7 @@ func FileSelector_Draw(dy int, ctx *cairo.Context) {
 	}
 }
 
-func FileSelector_MouseAtSelectZone(x0, y0 int) bool {
+func FilesSelector_MouseAtSelectZone(x0, y0 int) bool {
 	at_zone := false
 	for j := 0; j < len(arr_blocks); j++ {
 		at_zone = at_zone || arr_blocks[j].IsClickedIn(x0, y0)
@@ -38,11 +43,11 @@ func FileSelector_MouseAtSelectZone(x0, y0 int) bool {
 	return !at_zone
 }
 
-func FileSelector_MousePressed(event *gdk.Event, scroll *gtk.ScrolledWindow) (int, int, int, bool) {
+func FilesSelector_MousePressed(event *gdk.Event, scroll *gtk.ScrolledWindow) (int, int, int, bool) {
 	mousekey, x1, y1 := GTK_MouseKeyOfEvent(event)
 	_, dy := GTK_ScrollGetValues(scroll)
 	y1 += dy
-	zone := FileSelector_MouseAtSelectZone(x1, y1)
+	zone := FilesSelector_MouseAtSelectZone(x1, y1)
 	if mousekey == 1 && zone {
 		select_x1 = x1
 		select_y1 = y1
@@ -53,7 +58,7 @@ func FileSelector_MousePressed(event *gdk.Event, scroll *gtk.ScrolledWindow) (in
 	return mousekey, x1, y1, zone
 }
 
-func FileSelector_MouseMoved(event *gdk.Event, scroll *gtk.ScrolledWindow, redraw func()) {
+func FilesSelector_MouseMoved(event *gdk.Event, scroll *gtk.ScrolledWindow, redraw func()) {
 	if select_x1 > 0 && select_y1 > 0 {
 		_, x2, y2 := GTK_MouseKeyOfEvent(event)
 		_, dy := GTK_ScrollGetValues(scroll)
@@ -69,32 +74,38 @@ func FileSelector_MouseMoved(event *gdk.Event, scroll *gtk.ScrolledWindow, redra
 	}
 }
 
-func FileSelector_MouseRelease(event *gdk.Event, scroll *gtk.ScrolledWindow, redraw func()) {
+func FilesSelector_MouseRelease(event *gdk.Event, scroll *gtk.ScrolledWindow, redraw func()) {
 	mousekey, x2, y2 := GTK_MouseKeyOfEvent(event)
 	_, dy := GTK_ScrollGetValues(scroll)
 	y2 += dy
-	zone2 := FileSelector_MouseAtSelectZone(x2, y2)
+	zone2 := FilesSelector_MouseAtSelectZone(x2, y2)
 	if mousekey == 1 {
 		if select_x1 == x2 && select_y1 == y2 && zone2 {
 			Prln("select mouse1_up with reset")
-			FileSelector_ResetChecks()
+			FilesSelector_ResetChecks()
 		} else {
 			Prln("select mouse1_up")
 		}
-		FileSelector_ResetRect()
+		FilesSelector_ResetRect()
 		redraw()
 	}
 }
 
-func FileSelector_ResetRect() {
+func FilesSelector_ResetRect() {
 	select_x1 = 0
 	select_y1 = 0
 	select_x2 = 0
 	select_y2 = 0
 }
 
-func FileSelector_ResetChecks() {
+func FilesSelector_ResetChecks() {
 	for j := 0; j < len(arr_blocks); j++ {
 		arr_blocks[j].SetSelected(false)
+	}
+}
+
+func FilesSelector_SelectAll() {
+	for j := 0; j < len(arr_blocks); j++ {
+		arr_blocks[j].SetSelected(true)
 	}
 }

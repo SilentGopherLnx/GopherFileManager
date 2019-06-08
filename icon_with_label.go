@@ -46,18 +46,21 @@ func init() {
 	pixbuf_mount = GTK_PixBuf_From_Bytes(bb, "png")
 
 	gr := uint8(RoundF(float64(255) * BACK_GRAY_HIDDEN))
-	wh := 64
-	img := image.NewNRGBA(image.Rect(0, 0, wh, wh))
-	col := color.NRGBA{R: gr, G: gr, B: gr, A: 127}
-	for y := 0; y < wh; y++ {
-		for x := 0; x < wh; x++ {
-			img.Set(x, y, col)
+	zooms := Constant_ZoomArray()
+	for j := 0; j < len(zooms); j++ {
+		wh := zooms[j]
+		img := image.NewNRGBA(image.Rect(0, 0, wh, wh))
+		col := color.NRGBA{R: gr, G: gr, B: gr, A: 127}
+		for y := 0; y < wh; y++ {
+			for x := 0; x < wh; x++ {
+				if (x+y)%2 == 0 {
+					img.Set(x, y, col)
+				}
+			}
 		}
+		hid = make(map[int]*gdk.Pixbuf)
+		hid[wh] = GTK_PixBuf_From_RGBA(img)
 	}
-	hid = make(map[int]*gdk.Pixbuf)
-	hid[64] = GTK_PixBuf_From_RGBA(img)
-	hid[128], _ = ResizePixelBuffer(hid[64], 128, gdk.INTERP_NEAREST)
-	hid[256], _ = ResizePixelBuffer(hid[128], 256, gdk.INTERP_NEAREST)
 
 	//bb, _ = FileBytesRead(appdir + "gui/hidden.png")
 	//hid = GTK_PixBuf_From_Bytes(bb, "png")
@@ -208,6 +211,13 @@ func NewFileIconBlock(filepath string, filename string, wid int, isdir bool, isl
 		aw := g.GetAllocatedWidth()
 		ah := g.GetAllocatedHeight()
 		ctx.Rectangle(0, 0, float64(aw-2), float64(ah-2))
+		/*for ry := 0; ry < ah-1; ry++ {
+			for rx := 0; rx < aw-1; rx++ {
+				if (rx+ry)%2 == 0 {
+					ctx.Rectangle(float64(rx), float64(ry), 1, 1)
+				}
+			}
+		}*/
 		ctx.Fill()
 		// tx2, ty2, _ := evBox.TranslateCoordinates(gGFiles, 0, 0)
 		// Prln(filename + " [" + I2S(tx2) + "/" + I2S(ty2) + "]")
@@ -229,7 +239,7 @@ func NewFileIconBlock(filepath string, filename string, wid int, isdir bool, isl
 	tfile.SetReal(filepath + filename)
 	getter := func() []*LinuxPath {
 		list := []*LinuxPath{}
-		fnames := FileSelector_GetList()
+		fnames := FilesSelector_GetList()
 		if len(fnames) > 1 {
 			for j := 0; j < len(fnames); j++ {
 				file1 := NewLinuxPath(false) //??

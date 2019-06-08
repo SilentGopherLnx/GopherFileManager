@@ -5,6 +5,7 @@ import (
 	. "github.com/SilentGopherLnx/easygolang/easygtk"
 	. "github.com/SilentGopherLnx/easygolang/easylinux"
 
+	"github.com/gotk3/gotk3/gdk"
 	"github.com/gotk3/gotk3/gtk"
 )
 
@@ -18,24 +19,34 @@ func Dialog_FileRename(w *gtk.Window, fpath string, fname_old string, upd func()
 	lbl_err, _ := gtk.LabelNew("")
 	lbl_err.SetHExpand(true)
 	lbl_err.SetVExpand(true)
+	GTK_LabelWrapMode(lbl_err, 1)
 	btnok, _ := gtk.ButtonNewWithLabel("Ok")
 	btnok.SetHExpand(true)
-	btnok.Connect("button-press-event", func() {
+
+	ok_func := func() {
 		safe_name, _ := inpname.GetText()
 		// Windows (FAT32, NTFS): Any Unicode except NUL, \, /, :, *, ", <, >, |
 		// Mac(HFS, HFS+): Any valid Unicode except : or /
 		// Linux(ext[2-4]): Any byte except NUL or /
 		if safe_name != fname_old {
 			fpath2 := FolderPathEndSlash(fpath)
-			ok := FileRename(fpath2+fname_old, fpath2+safe_name)
+			ok, errtxt := FileRename(fpath2+fname_old, fpath2+safe_name)
 			if ok {
 				dial.Close()
 				upd()
 			} else {
-				lbl_err.SetText("error")
+				lbl_err.SetText("Error: " + errtxt)
 			}
 		} else {
 			dial.Close()
+		}
+	}
+
+	btnok.Connect("button-press-event", ok_func)
+	dial.Connect("key-press-event", func(_ *gtk.Dialog, ev *gdk.Event) {
+		uint_key, _ := GTK_KeyboardKeyOfEvent(ev)
+		if uint_key == 65293 { // Enter 65293   gdk.KEY_enter
+			ok_func()
 		}
 	})
 
@@ -52,16 +63,27 @@ func Dialog_FileRename(w *gtk.Window, fpath string, fname_old string, upd func()
 	// dial.SetMarginBottom(0)
 
 	dial.ShowAll()
+	ind := StringFindEnd(fname_old, ".")
+	if ind == 0 || ind == 1 {
+		ind = StringLength(fname_old)
+	} else {
+		ind--
+	}
+	inpname.SelectRegion(0, ind)
 	dial.Run()
 	dial.Close()
 }
 
-func Dialog_FileInfo(w *gtk.Window, fpath string, fname string) {
-	fullname := FolderPathEndSlash(fpath) + fname
+func Dialog_FileInfo(w *gtk.Window, fpath string, fnames []string) {
 	winw, winh := 300, 300
 	win2, err := gtk.WindowNew(gtk.WINDOW_TOPLEVEL)
+	//over := NewAtomicBool(false, [2]string{"1", "0"})
 	if err == nil {
-		win2.SetTitle("Info: " + fname)
+		if len(fnames) == 1 {
+			win2.SetTitle("Info: \"" + fnames[0] + "\"")
+		} else {
+			win2.SetTitle("Info: " + I2S(len(fnames)) + " selected")
+		}
 		win2.SetDefaultSize(winw, winh)
 		win2.SetPosition(gtk.WIN_POS_CENTER)
 		//win2.SetTransientFor(w)
@@ -77,21 +99,65 @@ func Dialog_FileInfo(w *gtk.Window, fpath string, fname string) {
 		src_mount := NewAtomicInt64(0)
 		src_symlinks := NewAtomicInt64(0)
 
+		spinner, _ := gtk.SpinnerNew()
+		spinner.Start()
+
+		mime := "?"
+		perm := "?"
+		if len(fnames) == 1 {
+			fullname := FolderPathEndSlash(fpath) + fnames[0]
+			mime = FileMIME(fullname)
+			perm = FilePermissionsString(fullname)
+		}
+
+		box_path, _ := GTK_LabelPair("Path: ", fpath)
+
+		names_str := ""
+		for j := 0; j < len(fnames); j++ {
+			names_str += fnames[j] + "\n"
+		}
+
+		lbl_src_title, _ := gtk.LabelNew("Files:")
+		lbl_src_title.SetMarkup("<b>Selected files:</b>")
+
+		lbl_src, _ := gtk.LabelNew(names_str)
+		lbl_src.SetHExpand(true)
+		lbl_src.SetVAlign(gtk.ALIGN_START)
+		lbl_src.SetHAlign(gtk.ALIGN_START)
+		//lbl_src.SetJustify(gtk.JUSTIFY_LEFT)
+		GTK_LabelWrapMode(lbl_src, MAXI(1, len(fnames)))
+
+		scroll_scr, _ := gtk.ScrolledWindowNew(nil, nil)
+		//scroll_scr.SetVExpand(true)
+		scroll_scr.SetHExpand(true)
+		scroll_scr.Add(lbl_src)
+
+		frame, _ := gtk.FrameNew("Selected files:")
+		frame.SetLabelWidget(lbl_src_title)
+		frame.Add(scroll_scr)
+
 		box_size, lbl_size := GTK_LabelPair("Size: ", "calculating...")
 		box_filse, lbl_files := GTK_LabelPair("Objects: ", "calculating...")
-		part_name, _ := LinuxFilePartition(mountlist, fullname)
+		part_name, _ := LinuxFilePartition(mountlist, fpath)
 		box_disk, _ := GTK_LabelPair("Disk: ", part_name)
-		box_mime, _ := GTK_LabelPair("Mime type: ", FileMIME(fullname))
-		box_perm, _ := GTK_LabelPair("Permissions: ", FilePermissionsString(fullname))
+		box_mime, _ := GTK_LabelPair("Mime type: ", mime)
+		box_perm, _ := GTK_LabelPair("Permissions: ", perm)
 		go func() {
-			path_info := FolderPathEndSlash(fpath) + fname
-			file_or_dir, ok := FileInfo(path_info)
-			if ok {
-				FoldersRecursively_Size(mountlist, file_or_dir, path_info, src_size, src_files, src_folders, src_failed, src_irregular, src_mount, src_symlinks)
+			for j := 0; j < len(fnames); j++ {
+				path_info := FolderPathEndSlash(fpath) + fnames[j]
+				file_or_dir, ok := FileInfo(path_info)
+				if ok {
+					FoldersRecursively_Size(mountlist, file_or_dir, path_info, src_size, src_files, src_folders, src_failed, src_irregular, src_mount, src_symlinks)
+				}
 			}
+			//over.Set(true)
+			spinner.Stop()
 		}()
 		grid, _ := gtk.GridNew()
 		grid.SetOrientation(gtk.ORIENTATION_VERTICAL)
+		grid.Add(box_path)
+		grid.Add(frame)
+		grid.Add(spinner)
 		grid.Add(box_size)
 		grid.Add(box_filse)
 		grid.Add(box_disk)

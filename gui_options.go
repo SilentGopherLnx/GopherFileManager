@@ -3,6 +3,7 @@ package main
 import (
 	. "github.com/SilentGopherLnx/easygolang"
 	. "github.com/SilentGopherLnx/easygolang/easygtk"
+	. "github.com/SilentGopherLnx/easygolang/easylinux"
 
 	"github.com/gotk3/gotk3/gtk"
 )
@@ -38,7 +39,12 @@ func InitOptions() {
 		return
 	}
 
-	opt.st.AddRecord_Array(100, OPTIONS_INIT_ZOOM, "128", []string{"64", "128", "256"}, "Initial zoom")
+	zooms_str := []string{}
+	za := Constant_ZoomArray()
+	for j := 0; j < len(za); j++ {
+		zooms_str = append(zooms_str, I2S(za[j]))
+	}
+	opt.st.AddRecord_Array(100, OPTIONS_INIT_ZOOM, I2S(za[len(za)/2]), zooms_str, "Initial zoom")
 
 	opt.st.AddRecord_String(201, OPTIONS_APP_FILEMOVER, "FileMoverGui", "FileMover's App path (relative or absolute)")
 	opt.st.AddRecord_Array(202, OPTIONS_MOVER_BUFFER, "16", []string{"1", "4", "8", "16", "32", "64", "128"}, "File mover buffer size in bytes (multiplied by 1024)")
@@ -132,10 +138,22 @@ func Dialog_Options(w *gtk.Window) {
 	grid, _ := gtk.GridNew()
 	grid.SetOrientation(gtk.ORIENTATION_VERTICAL)
 
+	clear_hash, _ := gtk.ButtonNewWithLabel("")
+	upd_hash_clear := func(key string) {
+		if key == OPTIONS_FOLDER_HASH {
+			files_list, _ := Folder_ListFiles(opt.GetHashFolder())
+			files_num := len(files_list)
+			newname := "Clear Hash (" + I2S(files_num) + " files)"
+			clear_hash.SetLabel(newname)
+		}
+	}
+	upd_hash_clear(OPTIONS_FOLDER_HASH)
+
 	arr := opt.st.GetRecordsKeys()
-	for j := 0; j < len(arr); j++ {
+	arr_len := len(arr)
+	for j := 0; j < arr_len; j++ {
 		key := arr[j]
-		opt_widget := GTK_OptionsWidget(opt.st, key, nil)
+		opt_widget := GTK_OptionsWidget(opt.st, key, upd_hash_clear)
 		if opt_widget != nil {
 			opt_title, _ := gtk.LabelNew(opt.st.GetRecordComment(key))
 			opt_title.SetHAlign(gtk.ALIGN_END)
@@ -143,6 +161,13 @@ func Dialog_Options(w *gtk.Window) {
 			grid.Attach(opt_widget, 1, j, 1, 1)
 		}
 	}
+	clear_hash.Connect("button-release-event", func() {
+		//Prln("" + opt.GetHashFolder())
+		file1 := NewLinuxPath(false) //??
+		file1.SetReal(opt.GetHashFolder())
+		RunFileOperaion([]*LinuxPath{file1}, nil, OPER_CLEAR)
+	})
+	grid.Attach(clear_hash, 1, arr_len, 1, 1)
 
 	scroll, _ := gtk.ScrolledWindowNew(nil, nil)
 	scroll.SetVExpand(true)

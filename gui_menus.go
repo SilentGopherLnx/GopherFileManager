@@ -58,7 +58,9 @@ func GTKMenu_CurrentFolder(menu *gtk.Menu, folderpath string) {
 	GTK_MenuItem(submenu_sort, "Type", nil)
 	GTK_MenuItem(submenu_sort, "Size", nil)
 	GTK_MenuSeparator(menu)
-	GTK_MenuItem(menu, "Info", nil)
+	GTK_MenuItem(menu, "Info", func() {
+		Dialog_FileInfo(win, LinuxFileGetParent(folderpath), []string{FolderPathEndSlash(LinuxFileNameFromPath(folderpath))})
+	})
 }
 
 func GTKMenu_File(menu *gtk.Menu, fpath string, fname string, isdir bool, isapp bool) {
@@ -138,8 +140,15 @@ func GTKMenu_File(menu *gtk.Menu, fpath string, fname string, isdir bool, isapp 
 			listFiles(gGFiles, fpath2)
 		})
 	})
+	if isdir {
+		GTK_MenuItem(rightmenu, "Clear", func() {
+			file1 := NewLinuxPath(false) //??
+			file1.SetReal(fpath2 + fname)
+			Prln("del: " + file1.GetUrl())
+			RunFileOperaion([]*LinuxPath{file1}, nil, OPER_CLEAR)
+		})
+	}
 	GTK_MenuItem(rightmenu, "Compress", nil)
-
 	GTK_MenuSeparator(rightmenu)
 	if isapp {
 		GTK_MenuItem(rightmenu, "Create Shortcut", nil)
@@ -149,7 +158,11 @@ func GTKMenu_File(menu *gtk.Menu, fpath string, fname string, isdir bool, isapp 
 		GTK_MenuItem(rightmenu, "Clear inside", nil)
 	}
 	GTK_MenuItem(rightmenu, "Info ["+ext_mime+"]", func() {
-		Dialog_FileInfo(win, fpath2, fname)
+		fname2 := fname
+		if isdir {
+			fname2 = FolderPathEndSlash(fname)
+		}
+		Dialog_FileInfo(win, fpath2, []string{fname2})
 	})
 }
 
@@ -174,7 +187,7 @@ func GTKMenu_Files(menu *gtk.Menu, fpath string, fnames []string, isdir bool, is
 	})
 	GTK_MenuSeparator(rightmenu)
 	GTK_MenuItem(rightmenu, "Info", func() {
-		//Dialog_FileInfo(win, fpath2, fname)
+		Dialog_FileInfo(win, fpath2, fnames)
 	})
 }
 

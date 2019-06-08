@@ -71,7 +71,7 @@ func init() {
 		TABLE_EXTENSIONS_ICONS_NAMES["zip"] = PREFIX_DRAWONME + FILE_TYPE_ARCHIVE
 	}
 
-	zooms := []int{64, 128, 256}
+	zooms := Constant_ZoomArray()
 	TABLE_EXTENSIONS_ICONS_SETS = make(map[int]*IconSetOfZoom)
 	for _, zoom := range zooms {
 		TABLE_EXTENSIONS_ICONS_SETS[zoom] = Make_IconSetOfZoom(zoom)
@@ -141,7 +141,11 @@ func try_load_image_of_zoom(prefix string, xm int, zoom int, suffix string) *[]b
 	if ok {
 		return img_bytes
 	} else {
-		scales := []int{256, 128, 64, 96, 48, 24}
+		za := Constant_ZoomArray()
+		scales := Constant_ZoomArray()
+		for j := len(za) - 1; j >= 0; j-- {
+			scales = append(scales, za[j]/8*3)
+		}
 		//if xm > 0 {
 		//	scales = []int{96, 48, 24, 256, 128, 64}
 		//}

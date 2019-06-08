@@ -293,13 +293,28 @@ func ResizePixelBuffer(pixbuf *gdk.Pixbuf, zoom_size int, interp gdk.InterpType)
 // 	return pixbuf
 // }
 
-func ReadHashPixbuf(path string, zoom_size int) *gdk.Pixbuf {
+func ReadHashPixbuf(path string, zoom_size int, alphamask *image.RGBA) *gdk.Pixbuf {
 	md5 := Crypto_MD5([]byte(I2S(zoom_size) + "//" + path))
 	//Prln("md5:" + md5)
 	//Prln("sha1:" + Crypto_SHA1([]byte(path)))
 	data, ok := FileBytesRead(opt.GetHashFolder() + md5 + ".jpg")
 	if ok {
-		return GTK_PixBuf_From_Bytes(data, "jpeg")
+		if alphamask == nil {
+			return GTK_PixBuf_From_Bytes(data, "jpeg")
+		} else {
+			nomask := ImageDecode(data)
+			img := image.NewRGBA(image.Rect(0, 0, zoom_size, zoom_size))
+			ImageAddOver(img, nomask, 0, 0)
+			for y := 0; y < zoom_size; y++ {
+				for x := 0; x < zoom_size; x++ {
+					col_nomask := img.RGBAAt(x, y)
+					col_amask := alphamask.RGBAAt(x, y)
+					col_nomask.A = col_amask.A
+					img.SetRGBA(x, y, col_nomask)
+				}
+			}
+			return GTK_PixBuf_From_RGBA(img)
+		}
 	} else {
 		return nil
 	}

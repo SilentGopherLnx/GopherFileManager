@@ -2,6 +2,7 @@ package main
 
 import (
 	. "github.com/SilentGopherLnx/easygolang"
+	//	. "github.com/SilentGopherLnx/easygolang/easygtk"
 	. "github.com/SilentGopherLnx/easygolang/easylinux"
 
 	"github.com/gotk3/gotk3/gdk"
@@ -12,34 +13,46 @@ import (
 const OPER_COPY = "copy"
 const OPER_MOVE = "move"
 const OPER_DELETE = "delete"
+const OPER_CLEAR = "clear"
 
 // https://github.com/geany/geany/issues/1368
 // GtkAccelGroup *accel_group = gtk_accel_group_new ();
 // gtk_window_add_accel_group (GTK_WINDOW (window), accel_group);
 // gtk_accel_group_connect (accel_group, GDK_KEY_Q, GDK_CONTROL_MASK, 0, g_cclosure_new_swap (G_CALLBACK (hello), window, NULL));
-func GTK_CopyPasteDnd_SetWindowKeyPressed(path *LinuxPath, ev *gdk.Event) {
-	keyEvent := &gdk.EventKey{ev}
-	uint_key := keyEvent.KeyVal()
-	//Prln("key:" + I2S(int(uint_key)))
-	if keyEvent.State() == gdk.GDK_CONTROL_MASK { // //key:65507 Ctrl
-		if uint_key == gdk.KEY_x { //120
+func GTK_CopyPasteDnd_SetWindowKeyPressed(path *LinuxPath, key uint, state uint) {
+	if state == gdk.GDK_CONTROL_MASK { // //key:65507 Ctrl
+		if key == gdk.KEY_x { //120
 			Prln("Ctrl+X")
 			GTK_CopyPasteDnd_CopyDel(path.GetReal(), true, false)
 		}
-		if uint_key == gdk.KEY_c { //99
+		if key == gdk.KEY_c { //99
 			Prln("Ctrl+C")
 			GTK_CopyPasteDnd_CopyDel(path.GetReal(), false, false)
 		}
-		if uint_key == gdk.KEY_v { //118
+		if key == gdk.KEY_v { //118
 			Prln("Ctrl+V")
 			GTK_CopyPasteDnd_Paste(path.GetReal())
 		}
-		Prln(I2S(int(uint_key)))
-	} else {
-		if uint_key == gdk.KEY_F2 { //65471
-			Prln("F2")
+		if key == gdk.KEY_a { //select all
+			Prln("Ctrl+A")
+			FilesSelector_SelectAll()
 		}
-		if uint_key == gdk.KEY_Delete { //65535
+		Prln(I2S(int(key)))
+	} else {
+		if key == gdk.KEY_F5 { //update
+			Prln("F5")
+			upd_func()
+		}
+		if key == gdk.KEY_F2 { //65471
+			Prln("F2")
+			fnames := FilesSelector_GetList()
+			if len(fnames) == 1 {
+				Dialog_FileRename(win, path.GetReal(), fnames[0], func() {
+					listFiles(gGFiles, path.GetReal())
+				})
+			}
+		}
+		if key == gdk.KEY_Delete { //65535
 			Prln("Del")
 			GTK_CopyPasteDnd_CopyDel(path.GetReal(), false, true)
 		}
@@ -47,7 +60,7 @@ func GTK_CopyPasteDnd_SetWindowKeyPressed(path *LinuxPath, ev *gdk.Event) {
 }
 
 func GTK_CopyPasteDnd_CopyDel(folderpath string, cut_mode bool, del bool) {
-	fnames := FileSelector_GetList()
+	fnames := FilesSelector_GetList()
 	fpath2 := FolderPathEndSlash(folderpath)
 	list := []*LinuxPath{}
 	for j := 0; j < len(fnames); j++ {
