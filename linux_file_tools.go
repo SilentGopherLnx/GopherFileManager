@@ -426,7 +426,7 @@ func GetDiscParts(local bool, remote bool, home bool, bookmarks bool) []*DiscPar
 		}
 
 		remote_dir := "/run/user/" + uid + "/gvfs/"
-		files, _ := Folder_ListFiles(remote_dir)
+		files, _ := Folder_ListFiles(remote_dir, false)
 
 		for _, f := range files {
 			//if f.IsDir() {

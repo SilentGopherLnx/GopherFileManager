@@ -25,8 +25,10 @@ const OPTIONS_SYSTEM_TERMINAL = "system_terminal"
 const OPTIONS_SYSTEM_FILEMANAGER = "system_filemanager"
 const OPTIONS_SYSTEM_TEXTEDITOR = "system_texteditor"
 const OPTIONS_FFMPEG_TIMEOUT = "ffmpeg_timeout"
+const OPTIONS_VIDEO_PREVIEW_PERCENT = "video_preview_percent"
 const OPTIONS_INOTIFY_PERIOD = "inotify_period"
 const OPTIONS_SYMLINKS_EVAL = "symlinks_eval"
+const OPTIONS_EXIF_ROTATION = "exif_rotation"
 
 func init() {
 	InitOptions()
@@ -56,10 +58,12 @@ func InitOptions() {
 	opt.st.AddRecord_String(402, OPTIONS_SYSTEM_FILEMANAGER, "nemo %F", "System file manager app for run. %F - path argument")
 	opt.st.AddRecord_String(403, OPTIONS_SYSTEM_TEXTEDITOR, "xed", "Your text editor (without arguments)")
 
-	opt.st.AddRecord_Integer(501, OPTIONS_FFMPEG_TIMEOUT, 6, 2, 10, "ffmpeg max time wait before kill it")
-	opt.st.AddRecord_Integer(502, OPTIONS_INOTIFY_PERIOD, 2, 1, 5, "inotify minimum period of directory content change reaction")
+	opt.st.AddRecord_Integer(501, OPTIONS_FFMPEG_TIMEOUT, 6, 2, 10, "FFmpeg max time wait before kill it")
+	opt.st.AddRecord_Integer(502, OPTIONS_INOTIFY_PERIOD, 2, 1, 5, "Process \"inotify\" minimum period of directory content change reaction")
+	opt.st.AddRecord_Integer(503, OPTIONS_VIDEO_PREVIEW_PERCENT, 50, 1, 99, "Percent of video duration for preview frame")
 
 	opt.st.AddRecord_Boolean(601, OPTIONS_SYMLINKS_EVAL, true, "Open symlinks as real path to folder")
+	opt.st.AddRecord_Boolean(602, OPTIONS_EXIF_ROTATION, true, "Use EXIF orientation tag for JPEG images")
 
 	opt.st.RecordsValues_Load(FolderLocation_App() + OPTIONS_FILE)
 	opt.st.RecordsValues_Save(FolderLocation_App() + OPTIONS_FILE)
@@ -117,8 +121,16 @@ func (o *OptionsContainer) GetFfmpegTimeout() int {
 	return o.st.ValueGetInteger(OPTIONS_FFMPEG_TIMEOUT)
 }
 
+func (o *OptionsContainer) GetVideoPercent() int {
+	return o.st.ValueGetInteger(OPTIONS_VIDEO_PREVIEW_PERCENT)
+}
+
 func (o *OptionsContainer) GetSymlinkEval() bool {
 	return o.st.ValueGetBoolean(OPTIONS_SYMLINKS_EVAL)
+}
+
+func (o *OptionsContainer) GetExifRot() bool {
+	return o.st.ValueGetBoolean(OPTIONS_EXIF_ROTATION)
 }
 
 func Dialog_Options(w *gtk.Window) {
@@ -135,13 +147,17 @@ func Dialog_Options(w *gtk.Window) {
 	win2.SetModal(true)
 	win2.SetKeepAbove(true)
 
+	win2.Connect("destroy", func() {
+		//opt.st.RecordsValues_Save(FolderLocation_App() + OPTIONS_FILE)
+	})
+
 	grid, _ := gtk.GridNew()
 	grid.SetOrientation(gtk.ORIENTATION_VERTICAL)
 
 	clear_hash, _ := gtk.ButtonNewWithLabel("")
 	upd_hash_clear := func(key string) {
 		if key == OPTIONS_FOLDER_HASH {
-			files_list, _ := Folder_ListFiles(opt.GetHashFolder())
+			files_list, _ := Folder_ListFiles(opt.GetHashFolder(), false)
 			files_num := len(files_list)
 			newname := "Clear Hash (" + I2S(files_num) + " files)"
 			clear_hash.SetLabel(newname)

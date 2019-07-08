@@ -32,7 +32,7 @@ func listDiscs(g *gtk.Box) {
 			//tpath := NewLinuxPath(true)
 			path.SetReal(p)
 			gInpPath.SetText(path.GetVisual())
-			listFiles(gGFiles, path.GetReal())
+			listFiles(gGFiles, path.GetReal(), true)
 		})
 		gDBtn.SetHExpand(false)
 

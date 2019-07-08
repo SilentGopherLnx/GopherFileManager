@@ -146,7 +146,7 @@ func main() {
 	gBtnUp.Connect("clicked", func() {
 		path.GoUp()
 		gInpPath.SetText(path.GetVisual())
-		listFiles(gGFiles, path.GetReal())
+		listFiles(gGFiles, path.GetReal(), true)
 	})
 	gBtnUp.SetCanFocus(false)
 
@@ -161,7 +161,7 @@ func main() {
 	upd_func = func() {
 		tpath, _ := gInpPath.GetText()
 		path.SetVisual(tpath)
-		listFiles(gGFiles, path.GetReal())
+		listFiles(gGFiles, path.GetReal(), true)
 	}
 
 	gBtnRefresh, _ = gtk.ButtonNewWithLabel("Reload")
@@ -299,7 +299,7 @@ func main() {
 	rezoom := func() {
 		GTK_Childs(gGFiles, true, true)
 		//path, _ = gInpPath.GetText()
-		listFiles(gGFiles, path.GetReal())
+		listFiles(gGFiles, path.GetReal(), true)
 		resize_files_icons()
 	}
 
@@ -358,13 +358,13 @@ func main() {
 	gCheckPreviewFolders.SetActive(with_folders_preview)
 	gCheckPreviewFolders.Connect("clicked", func() {
 		with_folders_preview = gCheckPreviewFolders.GetActive()
-		listFiles(gGFiles, path.GetReal())
+		listFiles(gGFiles, path.GetReal(), true)
 	})
 	gCheckPreviewFiles, _ := gtk.CheckButtonNewWithLabel("preview files")
 	gCheckPreviewFiles.SetActive(with_files_preview)
 	gCheckPreviewFiles.Connect("clicked", func() {
 		with_files_preview = gCheckPreviewFiles.GetActive()
-		listFiles(gGFiles, path.GetReal())
+		listFiles(gGFiles, path.GetReal(), true)
 	})
 
 	gGDown, _ := gtk.GridNew()
@@ -384,8 +384,11 @@ func main() {
 	//Prln(I2S(int(gdk.KEY_c)))
 
 	win.Connect("key-press-event", func(win *gtk.Window, ev *gdk.Event) {
-		key, state := GTK_KeyboardKeyOfEvent(ev)
-		GTK_CopyPasteDnd_SetWindowKeyPressed(path, key, state)
+		if !gInpPath.IsFocus() { //gGFiles.HasVisibleFocus() || gGFiles.HasFocus() || gGFiles.IsFocus() {
+			key, state := GTK_KeyboardKeyOfEvent(ev)
+			key, state = GTK_TranslateKeyLayoutEnglish(key, state)
+			GTK_CopyPasteDnd_SetWindowKeyPressed(path, key, state)
+		}
 	})
 	// win.Connect("key-release-event", func(win *gtk.Window, ev *gdk.Event) {
 	// 	keyEvent := &gdk.EventKey{ev}
@@ -418,7 +421,7 @@ func main() {
 	}
 
 	listDiscs(gGDiscs)
-	listFiles(gGFiles, path.GetReal())
+	listFiles(gGFiles, path.GetReal(), true)
 
 	pid := AppProcessID()
 	Prln("PID:" + I2S(pid))
@@ -447,9 +450,11 @@ func main() {
 
 }
 
-func listFiles(g *gtk.Grid, lpath string) {
+func listFiles(g *gtk.Grid, lpath string, scroll_reset bool) {
 
-	GTK_ScrollReset(sRightScroll)
+	if scroll_reset {
+		GTK_ScrollReset(sRightScroll)
+	}
 
 	fswatcher.Select(lpath)
 
@@ -485,7 +490,7 @@ func listFiles(g *gtk.Grid, lpath string) {
 		with_extra_info = false
 	}
 
-	files, err := Folder_ListFiles(lpath2)
+	files, err := Folder_ListFiles(lpath2, false) //// !!!!!!!!!!!!!!!!!!!!!!! true!
 	if err != nil {
 		Prln(err.Error())
 		iconwithlabel := NewFileIconBlock(lpath2, "ERROR!", 400, false, false, false, false, err.Error())
@@ -538,7 +543,7 @@ func listFiles(g *gtk.Grid, lpath string) {
 		not_read := false
 		if isdir {
 			if !single_thread_protocol && with_extra_info {
-				fl, err := Folder_ListFiles(filepathfinal)
+				fl, err := Folder_ListFiles(filepathfinal, false)
 				if err == nil {
 					if !single_thread_protocol {
 						inf = inf + I2S(len(fl)) + " files"
@@ -558,11 +563,12 @@ func listFiles(g *gtk.Grid, lpath string) {
 			if filepathfinal == opt.GetHashFolder() {
 				iconwithlabel.SetIconPixPuf(GetIcon_PixBif_OF(ZOOM_SIZE, PREFIX_DRAWONME+FILE_TYPE_FOLDER_HASH))
 			} else {
-				hashpix := ReadHashPixbuf(filepathfinal, ZOOM_SIZE, folder_mask)
+				hashpix := CachePreview_ReadPixbuf(f, ZOOM_SIZE, folder_mask)
 				if hashpix != nil {
 					iconwithlabel.SetIconPixPuf(hashpix)
 					oldbuf = true
 				} else {
+					//Prln("not found[" + f.FullName + "]")
 					iconwithlabel.SetIconPixPuf(GetIcon_PixBif(ZOOM_SIZE, "", true))
 				}
 			}
@@ -578,7 +584,7 @@ func listFiles(g *gtk.Grid, lpath string) {
 				pixbuf_icon = GetIcon_PixBif_OF(ZOOM_SIZE, PREFIX_EXTRA+FILE_TYPE_BIN)
 			} else {
 				if path.GetReal() != opt.GetHashFolder() {
-					pixbuf_icon = ReadHashPixbuf(filepathfinal, ZOOM_SIZE, nil)
+					pixbuf_icon = CachePreview_ReadPixbuf(f, ZOOM_SIZE, nil)
 				}
 				if pixbuf_icon != nil {
 					oldbuf = true
@@ -619,7 +625,7 @@ func listFiles(g *gtk.Grid, lpath string) {
 							}
 						}
 						gInpPath.SetText(path.GetVisual())
-						listFiles(gGFiles, path.GetReal())
+						listFiles(gGFiles, path.GetReal(), true)
 					} else {
 						OpenFileByApp(path.GetReal()+txtlbl, "")
 					}
@@ -807,7 +813,7 @@ func MainThread() {
 	RuntimeGosched()
 	for {
 		if fswatcher.IsUpdated() {
-			listFiles(gGFiles, path.GetReal())
+			listFiles(gGFiles, path.GetReal(), false)
 		}
 		gtk.MainIteration()
 		qlen := qu.Length()
@@ -837,7 +843,7 @@ func MainThread() {
 		mem.SetText(I2S(num_works.Get()) + " processes; RAM Usage: " + F2S(GetPC_MemoryUsageMb(), 1) + " Mb & " + usage)
 		main_iterations_funcs.ExecAll()
 		//}
-		RuntimeGosched()
+		//RuntimeGosched()
 		//debug.FreeOSMemory()
 		//mem.SetText("RAM Usage: " + I2S(linux.LinuxMemory()) + " Mb")
 		//GarbageCollection()

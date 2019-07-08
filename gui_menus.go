@@ -20,18 +20,18 @@ func GTKMenu_CurrentFolder(menu *gtk.Menu, folderpath string) {
 	submenu_new := GTK_MenuSub(menu, "New")
 	GTK_MenuItem(submenu_new, "Folder", func() {
 		name_created := create_new(folderpath, true)
-		listFiles(gGFiles, folderpath)
+		listFiles(gGFiles, folderpath, false)
 		Dialog_FileRename(win, folderpath, name_created, func() {
-			listFiles(gGFiles, folderpath)
+			listFiles(gGFiles, folderpath, false)
 		})
 	})
 	GTK_MenuSeparator(submenu_new)
 	GTK_MenuItem(submenu_new, "Text File", nil)
 	GTK_MenuItem(submenu_new, "Empty File", func() {
 		name_created := create_new(folderpath, false)
-		listFiles(gGFiles, folderpath)
+		listFiles(gGFiles, folderpath, false)
 		Dialog_FileRename(win, folderpath, name_created, func() {
-			listFiles(gGFiles, folderpath)
+			listFiles(gGFiles, folderpath, false)
 		})
 	})
 	GTK_MenuSeparator(menu)
@@ -135,9 +135,20 @@ func GTKMenu_File(menu *gtk.Menu, fpath string, fname string, isdir bool, isapp 
 	// //lbl := wi.(gtk.accel )
 
 	GTK_MenuSeparator(rightmenu)
+	if isdir {
+		paste_list := LinuxClipBoard_PasteFiles()
+		var func_paste func() = nil
+		if len(paste_list) > 0 {
+			func_paste = func() {
+				//Prln("[" + fpath2 + fname + "]")
+				GTK_CopyPasteDnd_Paste(FolderPathEndSlash(fpath2 + fname))
+			}
+		}
+		GTK_MenuItem(rightmenu, "Paste INTO", func_paste) // (Ctrl+V)
+	}
 	GTK_MenuItem(rightmenu, "Rename (F2)", func() {
 		Dialog_FileRename(win, fpath2, fname, func() {
-			listFiles(gGFiles, fpath2)
+			listFiles(gGFiles, fpath2, false)
 		})
 	})
 	if isdir {

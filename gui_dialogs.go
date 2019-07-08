@@ -145,8 +145,8 @@ func Dialog_FileInfo(w *gtk.Window, fpath string, fnames []string) {
 		go func() {
 			for j := 0; j < len(fnames); j++ {
 				path_info := FolderPathEndSlash(fpath) + fnames[j]
-				file_or_dir, ok := FileInfo(path_info)
-				if ok {
+				file_or_dir, err := FileInfo(path_info, false)
+				if err == nil {
 					FoldersRecursively_Size(mountlist, file_or_dir, path_info, src_size, src_files, src_folders, src_failed, src_irregular, src_mount, src_symlinks)
 				}
 			}

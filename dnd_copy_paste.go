@@ -37,7 +37,7 @@ func GTK_CopyPasteDnd_SetWindowKeyPressed(path *LinuxPath, key uint, state uint)
 			Prln("Ctrl+A")
 			FilesSelector_SelectAll()
 		}
-		Prln(I2S(int(key)))
+		//Prln(I2S(int(key)))
 	} else {
 		if key == gdk.KEY_F5 { //update
 			Prln("F5")
@@ -48,7 +48,7 @@ func GTK_CopyPasteDnd_SetWindowKeyPressed(path *LinuxPath, key uint, state uint)
 			fnames := FilesSelector_GetList()
 			if len(fnames) == 1 {
 				Dialog_FileRename(win, path.GetReal(), fnames[0], func() {
-					listFiles(gGFiles, path.GetReal())
+					listFiles(gGFiles, path.GetReal(), false)
 				})
 			}
 		}
@@ -87,7 +87,10 @@ func GTK_CopyPasteDnd_Paste(folderpath string) {
 			tpath.SetUrl(res_arr[j])
 			res_nocmd = append(res_nocmd, tpath)
 		}
-		RunFileOperaion(res_nocmd, path, StringReplace(oper, "cut", OPER_MOVE))
+		fpath := NewLinuxPath(true)
+		fpath.SetReal(folderpath)
+		RunFileOperaion(res_nocmd, fpath, StringReplace(oper, "cut", OPER_MOVE))
+		LinuxClipBoard_Clear()
 	}
 	//res = UrlQueryUnescape(res)
 	lines := StringSplitLines(res)
