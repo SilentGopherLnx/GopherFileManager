@@ -5,6 +5,8 @@ import (
 	. "github.com/SilentGopherLnx/easygolang/easygtk"
 	. "github.com/SilentGopherLnx/easygolang/easylinux"
 
+	. "./pkg_fileicon"
+
 	"github.com/gotk3/gotk3/gtk"
 )
 

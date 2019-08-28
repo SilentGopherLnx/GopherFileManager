@@ -1,4 +1,4 @@
-package main
+package pkg_filetools
 
 import (
 	. "github.com/SilentGopherLnx/easygolang"
@@ -14,14 +14,14 @@ type FSWatcher struct {
 	period_constant float64
 }
 
-func NewFSWatcher() *FSWatcher {
+func NewFSWatcher(notify_period int) *FSWatcher {
 	fswatcher, err := fsnotify.NewWatcher()
 	if err != nil {
 		Prln(err.Error())
 		fswatcher = nil
 	}
 	w := FSWatcher{fswatcher: fswatcher, count: NewAtomicInt(0), time_last: TimeNow()}
-	w.period_constant = float64(opt.GetInotifyPeriod())
+	w.period_constant = float64(notify_period)
 	return &w
 }
 

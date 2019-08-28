@@ -5,21 +5,23 @@ import (
 	. "github.com/SilentGopherLnx/easygolang/easygtk"
 	. "github.com/SilentGopherLnx/easygolang/easylinux"
 
+	. "./pkg_filetools"
+
 	"github.com/gotk3/gotk3/gtk"
 )
 
 func GTKMenu_CurrentFolder(menu *gtk.Menu, folderpath string) {
-	paste_list := LinuxClipBoard_PasteFiles()
+	paste_list, _ := LinuxClipBoard_PasteFiles()
 	var func_paste func() = nil
 	if len(paste_list) > 0 {
 		func_paste = func() {
 			GTK_CopyPasteDnd_Paste(folderpath)
 		}
 	}
-	GTK_MenuItem(menu, "Paste (Ctrl+V)", func_paste)
+	GTK_MenuItem(menu, "Paste "+I2S(len(paste_list))+"objects (Ctrl+V)", func_paste)
 	submenu_new := GTK_MenuSub(menu, "New")
 	GTK_MenuItem(submenu_new, "Folder", func() {
-		name_created := create_new(folderpath, true)
+		name_created := FileOrFolder_New(folderpath, true)
 		listFiles(gGFiles, folderpath, false)
 		Dialog_FileRename(win, folderpath, name_created, func() {
 			listFiles(gGFiles, folderpath, false)
@@ -28,7 +30,7 @@ func GTKMenu_CurrentFolder(menu *gtk.Menu, folderpath string) {
 	GTK_MenuSeparator(submenu_new)
 	GTK_MenuItem(submenu_new, "Text File", nil)
 	GTK_MenuItem(submenu_new, "Empty File", func() {
-		name_created := create_new(folderpath, false)
+		name_created := FileOrFolder_New(folderpath, false)
 		listFiles(gGFiles, folderpath, false)
 		Dialog_FileRename(win, folderpath, name_created, func() {
 			listFiles(gGFiles, folderpath, false)
@@ -51,12 +53,24 @@ func GTKMenu_CurrentFolder(menu *gtk.Menu, folderpath string) {
 		//a, b, c :=   Prln(a + b + c)
 	})
 	submenu_sort := GTK_MenuSub(menu, "Sort")
-	GTK_MenuItem(submenu_sort, "INC", nil)
-	GTK_MenuItem(submenu_sort, "DECR", nil)
+	GTK_MenuItem(submenu_sort, "INC "+B2S(sort_reverse, "", "(v)"), func() {
+		sort_reverse = false
+		resort_and_show()
+	})
+	GTK_MenuItem(submenu_sort, "DECR "+B2S(sort_reverse, "(v)", ""), func() {
+		sort_reverse = true
+		resort_and_show()
+	})
 	GTK_MenuSeparator(submenu_sort)
-	GTK_MenuItem(submenu_sort, "Name", nil)
-	GTK_MenuItem(submenu_sort, "Type", nil)
-	GTK_MenuItem(submenu_sort, "Size", nil)
+	GTK_MenuItem(submenu_sort, "Name "+B2S(sort_mode == 0, "(v)", ""), func() {
+		sort_mode = 0
+		resort_and_show()
+	})
+	GTK_MenuItem(submenu_sort, "Type "+B2S(sort_mode == 1, "(v)", ""), func() {
+		sort_mode = 1
+		resort_and_show()
+	})
+	GTK_MenuItem(submenu_sort, "Size "+B2S(sort_mode == 2, "(v)", ""), nil)
 	GTK_MenuSeparator(menu)
 	GTK_MenuItem(menu, "Info", func() {
 		Dialog_FileInfo(win, LinuxFileGetParent(folderpath), []string{FolderPathEndSlash(LinuxFileNameFromPath(folderpath))})
@@ -68,16 +82,16 @@ func GTKMenu_File(menu *gtk.Menu, fpath string, fname string, isdir bool, isapp 
 	ext_mime := FileMIME(fpath2 + fname)
 	app_mime := AppMIME(ext_mime)
 	apps_mime := AllAppsMIME(ext_mime)
-	GTK_MenuItem(rightmenu, Select_String(!isapp, "*", "")+"Open ["+app_mime+"]", nil)
+	GTK_MenuItem(rightmenu, B2S(!isapp, "*", "")+"Open ["+app_mime+"]", nil)
 	if isdir {
 		GTK_MenuItem(rightmenu, "Open in new Window", func() {
 			menu.Cancel()
-			go ExecCommandBash("" + ExecQuote(AppRunArgs()[0]) + " " + ExecQuote(fpath2+fname) + Select_String(win.IsMaximized(), " -max", ""))
+			go ExecCommandBash("" + ExecQuote(AppRunArgs()[0]) + " " + ExecQuote(fpath2+fname) + B2S(win.IsMaximized(), " -max", ""))
 		})
 		//if(islink){
 		GTK_MenuItem(rightmenu, "Open with eval symlink", nil)
 	} else {
-		GTK_MenuItem(rightmenu, Select_String(isapp, "*", "")+"Run", nil)
+		GTK_MenuItem(rightmenu, B2S(isapp, "*", "")+"Run", nil)
 		//GTK_MenuSeparator(rightmenu)
 
 		submenu_openwith := GTK_MenuSub(rightmenu, "Open With")
@@ -136,7 +150,7 @@ func GTKMenu_File(menu *gtk.Menu, fpath string, fname string, isdir bool, isapp 
 
 	GTK_MenuSeparator(rightmenu)
 	if isdir {
-		paste_list := LinuxClipBoard_PasteFiles()
+		paste_list, _ := LinuxClipBoard_PasteFiles()
 		var func_paste func() = nil
 		if len(paste_list) > 0 {
 			func_paste = func() {
@@ -144,7 +158,7 @@ func GTKMenu_File(menu *gtk.Menu, fpath string, fname string, isdir bool, isapp 
 				GTK_CopyPasteDnd_Paste(FolderPathEndSlash(fpath2 + fname))
 			}
 		}
-		GTK_MenuItem(rightmenu, "Paste INTO", func_paste) // (Ctrl+V)
+		GTK_MenuItem(rightmenu, "Paste INTO "+I2S(len(paste_list))+"objects", func_paste) // (Ctrl+V)
 	}
 	GTK_MenuItem(rightmenu, "Rename (F2)", func() {
 		Dialog_FileRename(win, fpath2, fname, func() {
@@ -189,7 +203,7 @@ func GTKMenu_Files(menu *gtk.Menu, fpath string, fnames []string, isdir bool, is
 		Prln("cut: " + I2S(len(fnames)) + "files")
 		LinuxClipBoard_CopyFiles(list, true)
 	})
-	GTK_MenuItem(rightmenu, "Copy (Ctrl+C)", func() {
+	GTK_MenuItem(rightmenu, "Copy "+I2S(len(fnames))+"objects (Ctrl+C)", func() {
 		Prln("copy: " + I2S(len(fnames)) + "files")
 		LinuxClipBoard_CopyFiles(list, false)
 	})

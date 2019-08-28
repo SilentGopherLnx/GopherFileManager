@@ -19,6 +19,11 @@ import (
 	. "github.com/SilentGopherLnx/easygolang/easygtk"
 	. "github.com/SilentGopherLnx/easygolang/easylinux"
 
+	. "./pkg_fileicon"
+	. "./pkg_filetools"
+
+	//	"os/exec"
+
 	"github.com/gotk3/gotk3/cairo"
 	"github.com/gotk3/gotk3/gdk"
 	"github.com/gotk3/gotk3/gtk"
@@ -43,13 +48,11 @@ var path_updated = NewAtomicInt(0)
 
 var icon_block_max_n_old, icon_block_max_w_old int
 
-var ZOOM_SIZE = 64 * 2
+var ZOOM_SIZE = 64
 
 var LEFT_PANEL_SIZE = 200 //200
 
-var BORDER_SIZE = 8
-
-var arr_blocks []*GtkFileIconBlock = []*GtkFileIconBlock{}
+var arr_blocks []*FileIconBlock = []*FileIconBlock{}
 var icon_chanN chan *IconUpdateable
 var icon_chan1 chan *IconUpdateable
 
@@ -57,6 +60,7 @@ var qu *SyncQueue
 
 var with_folders_preview bool = false
 var with_files_preview bool = false
+var with_cache_preview bool = false
 
 var with_destroy bool = true
 
@@ -74,7 +78,14 @@ var fswatcher *FSWatcher
 
 var num_works *AInt = NewAtomicInt(0)
 
+var sort_reverse bool = false
+var sort_mode int = 0
+
 var upd_func func()
+
+//var killchan chan *exec.Cmd
+
+var req_id *AInt64 = NewAtomicInt64(0)
 
 func init() {
 
@@ -85,7 +96,7 @@ func init() {
 
 	args := AppRunArgs()
 	if len(args) >= 2 {
-		path.SetReal(args[1])
+		path.SetVisual(args[1])
 	} else {
 		path.SetReal(FolderLocation_WorkDir())
 	}
@@ -93,7 +104,9 @@ func init() {
 	icon_chanN = make(chan *IconUpdateable)
 	icon_chan1 = make(chan *IconUpdateable)
 	qu = NewSyncQueue()
+	//	killchan = make(chan *exec.Cmd)
 
+	with_cache_preview = true
 	with_folders_preview = true
 	with_files_preview = true
 	//with_destroy = false
@@ -101,7 +114,7 @@ func init() {
 
 func main() {
 
-	fswatcher = NewFSWatcher()
+	fswatcher = NewFSWatcher(opt.GetInotifyPeriod())
 	defer fswatcher.Close()
 
 	gtk.Init(nil)
@@ -115,7 +128,7 @@ func main() {
 	GTK_ColorsLoad(win)
 
 	uid, _, _ := GetPC_UserUidLoginName()
-	sudo := Select_String(LinuxRoot_Check() == 1, "[root"+uid+"] ", "")
+	sudo := B2S(LinuxRoot_Check() == 1, "[root"+uid+"] ", "")
 	win.SetTitle(sudo + "GopherFileManager")
 	win.SetDefaultSize(1200, 800)
 	win.SetPosition(gtk.WIN_POS_CENTER)
@@ -130,9 +143,10 @@ func main() {
 
 	//ev := 0 // https://developer.gnome.org/gtk3/stable/GtkWidget.html
 	win.Connect("size-allocate", func() {
-		resize_files_icons()
+		resize_event_no_repeats()
 	})
 
+	appdir := FolderLocation_App()
 	win.SetIconFromFile(appdir + "gui/icon.png")
 
 	// ================
@@ -290,7 +304,7 @@ func main() {
 		if lw_old != lw {
 			lw_old = lw
 			LEFT_PANEL_SIZE = lw - 5
-			resize_files_icons()
+			resize_event_no_repeats()
 		}
 	})
 
@@ -300,7 +314,7 @@ func main() {
 		GTK_Childs(gGFiles, true, true)
 		//path, _ = gInpPath.GetText()
 		listFiles(gGFiles, path.GetReal(), true)
-		resize_files_icons()
+		resize_event_no_repeats()
 	}
 
 	za := Constant_ZoomArray()
@@ -354,17 +368,30 @@ func main() {
 		//copy_mode = gCheckDragCopy.GetActive()
 	})
 
+	gCheckPreviewCache, _ := gtk.CheckButtonNewWithLabel("preview cache")
+	gCheckPreviewCache.SetActive(with_cache_preview)
+	gCheckPreviewCache.Connect("clicked", func() {
+		with_cache_preview = gCheckPreviewCache.GetActive()
+		if with_cache_preview {
+			listFiles(gGFiles, path.GetReal(), true)
+		}
+	})
+
 	gCheckPreviewFolders, _ := gtk.CheckButtonNewWithLabel("preview folders")
 	gCheckPreviewFolders.SetActive(with_folders_preview)
 	gCheckPreviewFolders.Connect("clicked", func() {
 		with_folders_preview = gCheckPreviewFolders.GetActive()
-		listFiles(gGFiles, path.GetReal(), true)
+		if with_folders_preview {
+			listFiles(gGFiles, path.GetReal(), true)
+		}
 	})
 	gCheckPreviewFiles, _ := gtk.CheckButtonNewWithLabel("preview files")
 	gCheckPreviewFiles.SetActive(with_files_preview)
 	gCheckPreviewFiles.Connect("clicked", func() {
 		with_files_preview = gCheckPreviewFiles.GetActive()
-		listFiles(gGFiles, path.GetReal(), true)
+		if with_files_preview {
+			listFiles(gGFiles, path.GetReal(), true)
+		}
 	})
 
 	gGDown, _ := gtk.GridNew()
@@ -373,20 +400,21 @@ func main() {
 	gGDown.Attach(mem, 1, 0, 1, 1)
 	gGDown.Attach(space, 2, 0, 1, 1)
 	gGDown.Attach(gCheckDragCopy, 3, 0, 1, 1)
-	gGDown.Attach(gCheckPreviewFolders, 4, 0, 1, 1)
-	gGDown.Attach(gCheckPreviewFiles, 5, 0, 1, 1)
-	gGDown.Attach(spin, 6, 0, 1, 1)
+	gGDown.Attach(gCheckPreviewCache, 4, 0, 1, 1)
+	gGDown.Attach(gCheckPreviewFolders, 5, 0, 1, 1)
+	gGDown.Attach(gCheckPreviewFiles, 6, 0, 1, 1)
+	gGDown.Attach(spin, 7, 0, 1, 1)
 
 	// =================
 
-	GTK_CopyPasteDnd_SetAppDest(sRightScroll)
+	GTK_CopyPasteDnd_SetAppDest(&sRightScroll.Widget)
 
 	//Prln(I2S(int(gdk.KEY_c)))
 
 	win.Connect("key-press-event", func(win *gtk.Window, ev *gdk.Event) {
 		if !gInpPath.IsFocus() { //gGFiles.HasVisibleFocus() || gGFiles.HasFocus() || gGFiles.IsFocus() {
 			key, state := GTK_KeyboardKeyOfEvent(ev)
-			key, state = GTK_TranslateKeyLayoutEnglish(key, state)
+			key, state = GTK_KeyboardTranslateLayoutEnglish(key, state)
 			GTK_CopyPasteDnd_SetWindowKeyPressed(path, key, state)
 		}
 	})
@@ -415,9 +443,9 @@ func main() {
 
 	num_threads := opt.GetThreads()
 	//RuntimeGoMaxProcs(num_threads)
-	go IconThread(icon_chan1, qu, 0)
+	go Thread_Icon(icon_chan1, qu, 0)
 	for t := 1; t <= num_threads; t++ {
-		go IconThread(icon_chanN, qu, t)
+		go Thread_Icon(icon_chanN, qu, t)
 	}
 
 	listDiscs(gGDiscs)
@@ -426,427 +454,11 @@ func main() {
 	pid := AppProcessID()
 	Prln("PID:" + I2S(pid))
 
-	go func() {
-		for {
-			SleepMS(1500)
-			GarbageCollection()
-			FreeOSMemory()
-			usage = F2S(LinixMemoryUsedMB(pid), 1) + "Mb"
-		}
-	}()
+	go Thread_GC_and_Free(pid)
 
 	fswatcher.SetListenerOnce()
 
-	MainThread()
+	Thread_Main()
 	//gtk.Main()
 
-	/*for {
-		Sleep(500)
-		//fileMutex.Lock()
-		//mem.SetText("RAM Usage: " + I2S(GetPC_MemoryUsageMb()) + " Mb")
-		//fileMutex.Unlock()
-	}*/
-	//select {}
-
-}
-
-func listFiles(g *gtk.Grid, lpath string, scroll_reset bool) {
-
-	if scroll_reset {
-		GTK_ScrollReset(sRightScroll)
-	}
-
-	fswatcher.Select(lpath)
-
-	new_ind := path_updated.Add(1)
-
-	if with_destroy {
-		for j := 0; j < len(arr_blocks); j++ {
-			arr_blocks[j].Destroy()
-			arr_blocks[j] = nil
-		}
-	}
-
-	arr_blocks = []*GtkFileIconBlock{}
-
-	//GarbageCollection()
-
-	GTK_Childs(g, true, true)
-
-	GarbageCollection()
-
-	lpath2 := FolderPathEndSlash(lpath)
-	Prln("=========" + lpath2)
-
-	single_thread_protocol := false
-	with_extra_info := true
-	if StringFind(lpath2, "/run/user/") == 1 {
-		single_thread_protocol = true
-		if StringFind(lpath2, "/gvfs/smb-share:") > 1 {
-			single_thread_protocol = false
-		} else {
-			Prln("single_thread_protocol TRUE")
-		}
-		with_extra_info = false
-	}
-
-	files, err := Folder_ListFiles(lpath2, false) //// !!!!!!!!!!!!!!!!!!!!!!! true!
-	if err != nil {
-		Prln(err.Error())
-		iconwithlabel := NewFileIconBlock(lpath2, "ERROR!", 400, false, false, false, false, err.Error())
-		arr_blocks = append(arr_blocks, iconwithlabel)
-		g.Attach(iconwithlabel.GetWidget(), 1, 1, 1, 1)
-		g.ShowAll()
-		return
-	}
-	j := 0
-
-	SortArray(files, func(i, j int) bool {
-		if files[i].IsDir() != files[j].IsDir() {
-			return !CompareBoolLess(files[i].IsDir(), files[j].IsDir())
-		}
-		if files[i].Name() != files[j].Name() {
-			return FileSortName(StringDown(files[i].Name())) < FileSortName(StringDown(files[j].Name()))
-		}
-		return false
-	})
-
-	var arr_render []*IconUpdateable
-	icon_block_max_n, icon_block_max_w := max_icon_n_w()
-
-	folder_mask := GetIcon_ImageFolder(ZOOM_SIZE)
-
-	for _, f := range files {
-		fname := f.Name()
-		isdir := f.IsDir()
-		isapp := false
-		islink := FileIsLink(f)
-		isregular := f.Mode().IsRegular() || islink
-		oldbuf := false
-
-		if islink {
-			isdir = FileLinkIsDir(lpath2 + fname)
-		}
-
-		filepathfinal := lpath2 + fname
-		if isdir {
-			filepathfinal = FolderPathEndSlash(filepathfinal)
-		}
-
-		//Prln("[" + B2S_YN(isdir) + "]:{" + fname + "}" + B2S_YN(islink) + "/" + f.Mode().String())
-
-		x := j % icon_block_max_n
-		y := j / icon_block_max_n
-
-		inf := "" //f.Mode().String() + "\n" // + "|" + f.Mode().Perm().String()
-
-		not_read := false
-		if isdir {
-			if !single_thread_protocol && with_extra_info {
-				fl, err := Folder_ListFiles(filepathfinal, false)
-				if err == nil {
-					if !single_thread_protocol {
-						inf = inf + I2S(len(fl)) + " files"
-					}
-				} else {
-					not_read = true
-				}
-			}
-		} else {
-			inf = inf + FileSizeNiceString(f.Size()) //F2S(float64(f.Size())/float64(BytesInMb), 1) + "Mb"
-		}
-
-		ismount := LinuxFolderIsMountPoint(mountlist, lpath2+fname)
-		iconwithlabel := NewFileIconBlock(lpath2, fname, icon_block_max_w, isdir, islink, not_read, ismount, inf)
-
-		if isdir {
-			if filepathfinal == opt.GetHashFolder() {
-				iconwithlabel.SetIconPixPuf(GetIcon_PixBif_OF(ZOOM_SIZE, PREFIX_DRAWONME+FILE_TYPE_FOLDER_HASH))
-			} else {
-				hashpix := CachePreview_ReadPixbuf(f, ZOOM_SIZE, folder_mask)
-				if hashpix != nil {
-					iconwithlabel.SetIconPixPuf(hashpix)
-					oldbuf = true
-				} else {
-					//Prln("not found[" + f.FullName + "]")
-					iconwithlabel.SetIconPixPuf(GetIcon_PixBif(ZOOM_SIZE, "", true))
-				}
-			}
-		} else {
-			tfile := FileExtension(fname)
-			var pixbuf_icon *gdk.Pixbuf = nil
-			mime := ""
-			if with_extra_info {
-				mime = FileMIME(filepathfinal)
-			}
-			if mime == APP_EXEC_TYPE {
-				isapp = true
-				pixbuf_icon = GetIcon_PixBif_OF(ZOOM_SIZE, PREFIX_EXTRA+FILE_TYPE_BIN)
-			} else {
-				if path.GetReal() != opt.GetHashFolder() {
-					pixbuf_icon = CachePreview_ReadPixbuf(f, ZOOM_SIZE, nil)
-				}
-				if pixbuf_icon != nil {
-					oldbuf = true
-				} else {
-					pixbuf_icon = GetIcon_PixBif(ZOOM_SIZE, tfile, false)
-				}
-			}
-			if f.Size() == 0 {
-				if isregular {
-					pixbuf_icon = GetIcon_PixBif_OF(ZOOM_SIZE, PREFIX_DRAWONME+FILE_TYPE_ZERO)
-				} else {
-					pixbuf_icon = GetIcon_PixBif_OF(ZOOM_SIZE, PREFIX_DRAWONME+FILE_TYPE_NOTFILE)
-				}
-				//Prln("zero")
-			}
-			iconwithlabel.SetIconPixPuf(pixbuf_icon)
-		}
-
-		clicktime := TimeAddMS(TimeNow(), -2000)
-
-		iconwithlabel.ConnectEventBox("button-release-event", func(_ *gtk.EventBox, event *gdk.Event) {
-			mousekey, X, Y := GTK_MouseKeyOfEvent(event)
-			switch mousekey {
-			case 1:
-				dt := AbcF(TimeSeconds(clicktime))
-				//Prln(I2S(dt) + " / " + TimeStr(clicktime))
-				if dt < 0.5 {
-					txtlbl := iconwithlabel.GetFileName()
-					Prln("click: [" + txtlbl + "]")
-					clicktime = TimeAddMS(clicktime, -2000)
-					if isdir {
-						//path, _ = gInpPath.GetText()
-						path.SetReal(path.GetReal() + txtlbl)
-						if opt.GetSymlinkEval() {
-							r2, err := FileEvalSymlinks(path.GetReal())
-							if err == nil {
-								path.SetReal(r2)
-							}
-						}
-						gInpPath.SetText(path.GetVisual())
-						listFiles(gGFiles, path.GetReal(), true)
-					} else {
-						OpenFileByApp(path.GetReal()+txtlbl, "")
-					}
-				} else {
-					clicktime = TimeNow()
-					if X > 20 || Y > 20 {
-						Prln(">>click at file block")
-						FilesSelector_ResetChecks()
-						iconwithlabel.SetSelected(true)
-					}
-				}
-				//gGFiles.QueueDraw()
-			case 3:
-				Prln("right")
-				if rightmenu != nil && rightmenu.IsVisible() {
-					Prln("hiding menu")
-					rightmenu.Destroy()
-				}
-				rightmenu, _ = gtk.MenuNew()
-
-				sel_list := FilesSelector_GetList()
-				if len(sel_list) <= 1 {
-					GTKMenu_File(rightmenu, lpath2, fname, isdir, isapp)
-				} else {
-					GTKMenu_Files(rightmenu, lpath2, sel_list, isdir, isapp)
-				}
-
-				rightmenu.ShowAll()
-				rightmenu.PopupAtPointer(event) // (evBox, gdk.GDK_GRAVITY_STATIC, gdk.GDK_GRAVITY_STATIC,
-			}
-		})
-
-		arr_blocks = append(arr_blocks, iconwithlabel)
-		g.Attach(iconwithlabel.GetWidget(), x, y, 1, 1)
-		j++
-
-		if isdir {
-			fullname := FolderPathEndSlash(path.GetReal() + fname)
-			if with_folders_preview && !single_thread_protocol && fullname != opt.GetHashFolder() {
-				iconwithlabel.SetLoading(true)
-				arr_render = append(arr_render, &IconUpdateable{icon: iconwithlabel.icon, loading: iconwithlabel.icon_loading, fullname: fullname, fname: fname, tfile: "", basic_mode: single_thread_protocol, folder: true, oldbuf: oldbuf})
-			}
-		} else {
-			/*if !single_thread_protocol {
-				update_icon(lpath2, fname, icon)
-			}*/
-			if with_files_preview {
-				tfile := FileExtension(fname)
-				if len(tfile) > 0 {
-					fullname := path.GetReal() + fname
-					if FileIsPreviewAbble(tfile) && path.GetReal() != opt.GetHashFolder() {
-						iconwithlabel.SetLoading(true)
-						arr_render = append(arr_render, &IconUpdateable{icon: iconwithlabel.icon, loading: iconwithlabel.icon_loading, fullname: fullname, fname: fname, tfile: tfile, basic_mode: single_thread_protocol, folder: false, oldbuf: oldbuf})
-					}
-				}
-			}
-		}
-	}
-	g.ShowAll()
-	//win.QueueDraw()
-
-	//Prln("folder loaded. starting chans sending...")
-
-	go func() {
-		SleepMS(5)
-		for b := 0; b < 2; b++ {
-			oldbuf := b == 1
-			for k := 0; k < 2; k++ {
-				fold := k == 1
-				for j := 0; j < len(arr_render); j++ {
-					if arr_render[j].folder == fold && arr_render[j].oldbuf == oldbuf {
-						if new_ind == path_updated.Get() {
-							if single_thread_protocol {
-								icon_chan1 <- arr_render[j]
-							} else {
-								icon_chanN <- arr_render[j]
-							}
-						}
-						RuntimeGosched()
-					}
-				}
-			}
-		}
-
-		/*if !single_thread_protocol {
-			for j := 0; j < len(arr_render); j++ {
-				if arr_render[j].folder {
-					a := arr_render[j]
-					arr_render2 := &IconUpdateable{icon: a.icon, fullname: a.fullname, fname: a.fname, tfile: a.tfile, basic_mode: false, folder: true}
-					icon_chanN <- arr_render2
-					RuntimeGosched()
-				}
-			}
-		}*/
-
-		//Prln("GO FINISH")
-	}()
-
-}
-
-/*func update_icon(lpath2 string, fname string, icon *gtk.Image) {
-	tfile := GetFileExtension(fname)
-	if len(tfile) > 0 {
-		fullname := FolderPathEndSlash(path) + fname
-		iconpath := FileIconBySystem(fullname)
-		if len(iconpath) > 0 {
-			pixbuf_preview, err := gdk.PixbufNewFromFile(iconpath)
-			if err == nil {
-				pixbuf_preview2, ok := ResizePixelBuffer(pixbuf_preview, ZOOM_SIZE, gdk.INTERP_BILINEAR)
-				if ok {
-					icon.SetFromPixbuf(pixbuf_preview2)
-				} else {
-					icon.SetFromPixbuf(pixbuf_preview)
-				}
-			}
-		}
-	}
-}*/
-
-func resize_files_icons() {
-	//ev++
-	//Prln("resize" + I2S(ev))
-
-	icon_block_max_n, icon_block_max_w := max_icon_n_w()
-	if icon_block_max_n_old != icon_block_max_n || icon_block_max_w_old != icon_block_max_w {
-		Prln("resized")
-		//fileMutex.Lock()
-		//defer fileMutex.Unlock()
-
-		icon_block_max_n_old = icon_block_max_n
-		icon_block_max_w_old = icon_block_max_w
-		icon_block_max_w += 0
-
-		arr := GTK_Childs(gGFiles, true, false)
-		len_arr := len(arr)
-		for j := 0; j < len_arr; j++ {
-			x := j % icon_block_max_n
-			y := j / icon_block_max_n
-			gEv := arr[len_arr-j-1]
-			gGFiles.Attach(gEv, x, y, 1, 1)
-
-			/*label, ok := map_labels[&gEv]
-			if ok {
-				label.SetSizeRequest(icon_block_max_w-BORDER_SIZE*2, 32)
-				txt, _ := label.GetText()
-				Prln(txt)
-			}*/
-			/*Prln(Typeof(gEv))
-			type Resizer interface {
-				SetSizeRequest(a int, b int)
-			}
-			if r, ok := gEv.(Resizer); ok {
-				Prln("ok_" + I2S(j))
-				r.SetSizeRequest(icon_block_max_w-BORDER_SIZE*2, 32)
-			} else {
-				Prln("fail_" + I2S(j))
-			}*/
-
-		}
-
-		len_arrl := len(arr_blocks)
-		for j := 0; j < len_arrl; j++ {
-			arr_blocks[j].SetWidth(icon_block_max_w)
-		}
-		//gGFiles.ShowAll()
-	}
-}
-
-func max_icon_n_w() (int, int) {
-	//ww, _ := sScroll.GetPreferredWidth()
-	//sScroll.CheckResize()
-	//ww, _ := win.GetPreferredWidth()
-	ww, _ := win.GetSize()
-	real_w := MAXI(16, ww-LEFT_PANEL_SIZE) - 6 - BORDER_SIZE*5/2
-	icon_block_max_w := MAXI(16, ZOOM_SIZE+BORDER_SIZE*4)
-	icon_block_max_n := MAXI(1, MAXI(16, real_w)/icon_block_max_w)
-	icon_block_max_w = real_w/icon_block_max_n - BORDER_SIZE*3
-	//Prln("size" + I2S(ww))
-	return icon_block_max_n, icon_block_max_w
-}
-
-func MainThread() {
-	iter := 0
-	gtk.MainIteration()
-	RuntimeGosched()
-	for {
-		if fswatcher.IsUpdated() {
-			listFiles(gGFiles, path.GetReal(), false)
-		}
-		gtk.MainIteration()
-		qlen := qu.Length()
-		if qlen > 0 {
-			//Prln("qlen:" + I2S(qlen) + " / " + F2S(GetPC_MemoryUsageMb(), 1) + "Mb")
-			//Prln("it1")
-			w, ok := qu.GetEnd().(*IconUpdateable)
-			for ok && !GTK_WidgetExist(w.icon) && qu.Length() > 0 {
-				w, ok = qu.GetEnd().(*IconUpdateable)
-				Prln("widget searching...")
-			}
-			if ok && GTK_WidgetExist(w.icon) {
-				//Prln("pixbufset")
-				if w.success {
-					w.loading.SetFromPixbuf(nil)
-					w.icon.SetFromPixbuf(w.pixbuf_preview)
-				} else {
-					w.loading.SetFromPixbuf(pixbuf_loading_err)
-				}
-			}
-			//Prln("it2")
-		} else {
-			iter++
-		}
-		//if iter > 10 {
-		//	iter = 0
-		mem.SetText(I2S(num_works.Get()) + " processes; RAM Usage: " + F2S(GetPC_MemoryUsageMb(), 1) + " Mb & " + usage)
-		main_iterations_funcs.ExecAll()
-		//}
-		//RuntimeGosched()
-		//debug.FreeOSMemory()
-		//mem.SetText("RAM Usage: " + I2S(linux.LinuxMemory()) + " Mb")
-		//GarbageCollection()
-		//win.ShowAll()
-	}
 }

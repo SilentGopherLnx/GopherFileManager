@@ -1,9 +1,8 @@
-package main
+package pkg_fileicon
 
 import (
 	. "github.com/SilentGopherLnx/easygolang"
 	. "github.com/SilentGopherLnx/easygolang/easygtk"
-	. "github.com/SilentGopherLnx/easygolang/easylinux"
 
 	"image"
 	"image/color"
@@ -19,6 +18,8 @@ var hid map[int]*gdk.Pixbuf
 
 const BACK_GRAY_VISIBLE float64 = 0.8
 const BACK_GRAY_HIDDEN float64 = 0.9
+
+const BORDER_SIZE = 8
 
 // //get the icon theme and lookup the icon we want by name, here at a size of 64px
 // var info = Gtk.IconTheme.get_default ().lookup_icon ("view-refresh-symbolic", 64, 0);
@@ -67,7 +68,7 @@ func init() {
 	//hid, _ = ResizePixelBuffer(hid, 64, 64)
 }
 
-type GtkFileIconBlock struct {
+type FileIconBlock struct {
 	ebox     *gtk.EventBox
 	maingrid *gtk.Grid
 	overlay  *gtk.Overlay
@@ -83,8 +84,9 @@ type GtkFileIconBlock struct {
 	name         *gtk.Label
 	info         *gtk.Label
 
-	fpath    string
-	fname    string
+	fpath string
+	fname string
+
 	mime_sys string
 	mime_app string
 	app_open string
@@ -95,12 +97,12 @@ type GtkFileIconBlock struct {
 	//rwx      int
 }
 
-func NewFileIconBlock(filepath string, filename string, wid int, isdir bool, islink bool, notread bool, ismount bool, strinfo string) *GtkFileIconBlock {
+func NewFileIconBlock(filepath string, filename string, wid int, isdir bool, islink bool, notread bool, ismount bool, strinfo string, zoom_init int) *FileIconBlock {
 	b2 := BORDER_SIZE / 2
 	isHidden := StringPart(filename, 1, 1) == "."
 
 	icon, _ := gtk.ImageNew()
-	icon.SetSizeRequest(ZOOM_SIZE, ZOOM_SIZE)
+	icon.SetSizeRequest(zoom_init, zoom_init)
 
 	check, _ := gtk.CheckButtonNew()
 	/*check.SetHExpand(true)
@@ -152,20 +154,20 @@ func NewFileIconBlock(filepath string, filename string, wid int, isdir bool, isl
 	overgrid.Attach(icon_mount, 0, 2, 1, 1)
 	overgrid.SetColumnHomogeneous(true)
 	overgrid.SetRowHomogeneous(true)
-	overgrid.SetSizeRequest(ZOOM_SIZE, ZOOM_SIZE)
+	overgrid.SetSizeRequest(zoom_init, zoom_init)
 	overgrid.SetHExpand(true)
 	//overgrid.SetVExpand(true)
 
 	icon_hidden, _ := gtk.ImageNew()
 	if isHidden {
-		icon_hidden.SetFromPixbuf(hid[ZOOM_SIZE])
+		icon_hidden.SetFromPixbuf(hid[zoom_init])
 	}
 
 	overlay, _ := gtk.OverlayNew()
 	overlay.Add(icon)
 	overlay.AddOverlay(icon_hidden)
 	overlay.AddOverlay(overgrid)
-	overlay.SetSizeRequest(ZOOM_SIZE, ZOOM_SIZE)
+	overlay.SetSizeRequest(zoom_init, zoom_init)
 	overlay.SetHExpand(true)
 	//overlay.SetVExpand(true)
 
@@ -229,31 +231,7 @@ func NewFileIconBlock(filepath string, filename string, wid int, isdir bool, isl
 		evBox.QueueDraw()
 	})
 
-	if isdir {
-		dest := NewLinuxPath(true)
-		dest.SetReal(filepath + filename)
-		GTK_CopyPasteDnd_SetFolderDest(evBox, dest)
-	}
-
-	tfile := NewLinuxPath(isdir)
-	tfile.SetReal(filepath + filename)
-	getter := func() []*LinuxPath {
-		list := []*LinuxPath{}
-		fnames := FilesSelector_GetList()
-		if len(fnames) > 1 {
-			for j := 0; j < len(fnames); j++ {
-				file1 := NewLinuxPath(false) //??
-				file1.SetReal(filepath + fnames[j])
-				list = append(list, file1)
-			}
-		} else {
-			list = []*LinuxPath{tfile}
-		}
-		return list
-	}
-	GTK_CopyPasteDnd_SetIconSource(evBox, icon, getter)
-
-	block := &GtkFileIconBlock{
+	block := &FileIconBlock{
 		ebox:         evBox,
 		maingrid:     main,
 		overlay:      overlay,
@@ -277,36 +255,49 @@ func NewFileIconBlock(filepath string, filename string, wid int, isdir bool, isl
 	return block
 }
 
-func (i *GtkFileIconBlock) SetLoading(v bool) {
-	if v {
-		i.icon_loading.SetFromPixbuf(pixbuf_loading)
-	} else {
-		i.icon_loading.SetFromPixbuf(nil)
-	}
-}
-
-func (i *GtkFileIconBlock) SetIconPixPuf(pixbuf_icon *gdk.Pixbuf) {
-	i.icon.SetFromPixbuf(pixbuf_icon)
-}
-
-func (i *GtkFileIconBlock) ConnectEventBox(eventname string, f func(_ *gtk.EventBox, event *gdk.Event)) {
-	i.ebox.Connect(eventname, f)
-}
-
-func (i *GtkFileIconBlock) SetWidth(wid int) {
-	i.name.SetSizeRequest(wid, 32)
-}
-
-func (i *GtkFileIconBlock) GetFileName() string {
+func (i *FileIconBlock) GetFileName() string {
 	return i.fname
 }
 
-func (i *GtkFileIconBlock) GetWidget() gtk.IWidget {
-	return i.ebox
+func (i *FileIconBlock) IsDir() bool {
+	return i.isdir
 }
 
-func (i *GtkFileIconBlock) IsClickedIn(x0, y0 int) bool {
-	tx0, ty0, _ := i.ebox.TranslateCoordinates(gGFiles, 0, 0)
+func (i *FileIconBlock) SetLoading(v bool, err bool) {
+	if !err {
+		if v {
+			i.icon_loading.SetFromPixbuf(pixbuf_loading)
+		} else {
+			i.icon_loading.SetFromPixbuf(nil)
+		}
+	} else {
+		i.icon_loading.SetFromPixbuf(pixbuf_loading_err)
+	}
+}
+
+func (i *FileIconBlock) SetIconPixPuf(pixbuf_icon *gdk.Pixbuf) {
+	i.icon.SetFromPixbuf(pixbuf_icon)
+}
+
+func (i *FileIconBlock) GetIcon() *gtk.Image {
+	return i.icon
+}
+
+//for all
+func (i *FileIconBlock) GetWidgetMain() *gtk.Widget {
+	return &i.ebox.Widget
+}
+
+func (i *FileIconBlock) ConnectEventBox(eventname string, f func(_ *gtk.EventBox, event *gdk.Event)) {
+	i.ebox.Connect(eventname, f)
+}
+
+func (i *FileIconBlock) SetWidth(wid int) {
+	i.name.SetSizeRequest(wid, 32)
+}
+
+func (i *FileIconBlock) IsClickedIn(container *gtk.Widget, x0, y0 int) bool {
+	tx0, ty0, _ := i.ebox.TranslateCoordinates(container, 0, 0)
 	tw := i.ebox.GetAllocatedWidth()
 	th := i.ebox.GetAllocatedHeight()
 	tx0 += BORDER_SIZE
@@ -314,8 +305,8 @@ func (i *GtkFileIconBlock) IsClickedIn(x0, y0 int) bool {
 	return x0 > tx0 && x0 < tx0+tw && y0 > ty0 && y0 < ty0+th
 }
 
-func (i *GtkFileIconBlock) IsInSelectRect(x1, y1, x2, y2 int) bool {
-	tx0, ty0, _ := i.ebox.TranslateCoordinates(gGFiles, 0, 0)
+func (i *FileIconBlock) IsInSelectRect(container *gtk.Widget, x1, y1, x2, y2 int) bool {
+	tx0, ty0, _ := i.ebox.TranslateCoordinates(container, 0, 0)
 	tw := i.ebox.GetAllocatedWidth()
 	th := i.ebox.GetAllocatedHeight()
 	tx0 += BORDER_SIZE
@@ -330,7 +321,7 @@ func (i *GtkFileIconBlock) IsInSelectRect(x1, y1, x2, y2 int) bool {
 	return r1 || r2 || r3 || r4
 }
 
-func (i *GtkFileIconBlock) SetSelected(v bool) {
+func (i *FileIconBlock) SetSelected(v bool) {
 	v0 := i.check.GetActive()
 	if v0 != v {
 		i.check.SetActive(v)
@@ -338,7 +329,12 @@ func (i *GtkFileIconBlock) SetSelected(v bool) {
 	}
 }
 
-func (i *GtkFileIconBlock) Destroy() {
+func (i *FileIconBlock) GetSelected() bool {
+	return i.check.GetActive()
+
+}
+
+func (i *FileIconBlock) Destroy() {
 	i.icon.SetFromPixbuf(nil)
 
 	//i.maingrid.Remove(i.icon)

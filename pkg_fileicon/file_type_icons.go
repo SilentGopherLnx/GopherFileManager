@@ -1,5 +1,4 @@
-// file_type.go
-package main
+package pkg_fileicon
 
 import (
 	. "github.com/SilentGopherLnx/easygolang"
@@ -30,10 +29,8 @@ const FILE_TYPE_BIN = "bin"
 var TABLE_EXTENSIONS_ICONS_NAMES map[string]string
 var TABLE_EXTENSIONS_ICONS_SETS map[int]*IconSetOfZoom
 
-var appdir = ""
-
 func init() {
-	appdir = FolderLocation_App()
+	appdir := FolderLocation_App()
 
 	TABLE_EXTENSIONS_ICONS_NAMES = make(map[string]string)
 	txt, ok := FileTextRead(appdir + MIME_CONFIG)
@@ -78,6 +75,15 @@ func init() {
 	}
 }
 
+func Constant_ZoomArray() []int {
+	return []int{64, 128, 256} //, 512}
+}
+
+func Constant_ZoomMax() int {
+	arr := Constant_ZoomArray()
+	return arr[len(arr)-1]
+}
+
 func ZoomSmall(zoom_big int) int {
 	return RoundF(float64(zoom_big) / 8.0 * 3.0)
 }
@@ -116,6 +122,7 @@ func Make_IconSetOfZoom(zoom int) *IconSetOfZoom {
 }
 
 func icon_set_big_small(iconset *IconSetOfZoom, zoom int, zoom_small int, name string, colorT *color.RGBA) (*[]byte, *[]byte) {
+	appdir := FolderLocation_App()
 	bytes_big := try_load_image_of_zoom(appdir+MIME_PATH, 0, zoom, "/"+name+".png")
 	bytes_small := try_load_image_of_zoom(appdir+MIME_PATH, 1, zoom_small, "/"+name+".png")
 
@@ -201,4 +208,18 @@ func GetIcon_ImageRGBA(zoom int, ftype string, dir bool) image.Image {
 func GetIcon_ImageFolder(zoom int) *image.RGBA {
 	iconset := TABLE_EXTENSIONS_ICONS_SETS[zoom]
 	return ImageClone(iconset.FolderImageRGBA)
+}
+
+func ResizePixelBuffer(pixbuf *gdk.Pixbuf, zoom_size int, interp gdk.InterpType) (*gdk.Pixbuf, bool) {
+	w_old := pixbuf.GetWidth()
+	h_old := pixbuf.GetHeight()
+	max_old := MAXI(w_old, h_old)
+	max_new := zoom_size - 4
+	w_new := MAXI(1, max_new*w_old/max_old)
+	h_new := MAXI(1, max_new*h_old/max_old)
+	pixbuf, err := pixbuf.ScaleSimple(w_new, h_new, interp)
+	if err == nil {
+		return pixbuf, true
+	}
+	return nil, false
 }

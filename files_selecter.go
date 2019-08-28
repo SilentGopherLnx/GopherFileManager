@@ -3,6 +3,7 @@ package main
 import (
 	. "github.com/SilentGopherLnx/easygolang"
 	. "github.com/SilentGopherLnx/easygolang/easygtk"
+
 	"github.com/gotk3/gotk3/cairo"
 	"github.com/gotk3/gotk3/gdk"
 	"github.com/gotk3/gotk3/gtk"
@@ -14,9 +15,9 @@ var select_x1, select_y1, select_x2, select_y2 int
 func FilesSelector_GetList() []string {
 	arr := []string{}
 	for j := 0; j < len(arr_blocks); j++ {
-		if arr_blocks[j].check.GetActive() {
-			name := arr_blocks[j].fname
-			if arr_blocks[j].isdir {
+		if arr_blocks[j].GetSelected() {
+			name := arr_blocks[j].GetFileName()
+			if arr_blocks[j].IsDir() {
 				arr = append(arr, FolderPathEndSlash(name))
 			} else {
 				arr = append(arr, name)
@@ -38,7 +39,7 @@ func FilesSelector_Draw(dy int, ctx *cairo.Context) {
 func FilesSelector_MouseAtSelectZone(x0, y0 int) bool {
 	at_zone := false
 	for j := 0; j < len(arr_blocks); j++ {
-		at_zone = at_zone || arr_blocks[j].IsClickedIn(x0, y0)
+		at_zone = at_zone || arr_blocks[j].IsClickedIn(&gGFiles.Widget, x0, y0)
 	}
 	return !at_zone
 }
@@ -68,7 +69,7 @@ func FilesSelector_MouseMoved(event *gdk.Event, scroll *gtk.ScrolledWindow, redr
 		select_y2 = y2
 		//Prln("rect " + I2S(select_x1) + "," + I2S(select_y1) + " / " + I2S(select_x2) + "," + I2S(select_y2))
 		for j := 0; j < len(arr_blocks); j++ {
-			is_inside := arr_blocks[j].IsInSelectRect(select_x1, select_y1, select_x2, select_y2)
+			is_inside := arr_blocks[j].IsInSelectRect(&gGFiles.Widget, select_x1, select_y1, select_x2, select_y2)
 			arr_blocks[j].SetSelected(is_inside)
 		}
 		redraw()

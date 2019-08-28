@@ -1,5 +1,4 @@
-// file_tools.go
-package main
+package pkg_filetools
 
 import (
 	. "github.com/SilentGopherLnx/easygolang"
@@ -8,209 +7,7 @@ import (
 	//"net/url"
 )
 
-var APP_EXEC_TYPE = "application/x-executable"
-
-var SYSTEM_PATH []string
-
-func init() {
-	strs, ok := FileTextRead("system_icon_path.cfg")
-	if ok {
-		SYSTEM_PATH = StringSplitLines(strs)
-	}
-	if len(SYSTEM_PATH) < 2 {
-		SYSTEM_PATH = []string{"/usr/share/icons/Mint-Y/mimetypes/64/", "/usr/share/icons/Mint-Y/apps/64/"}
-	}
-}
-
-func OpenFileByApp(filename string, appname string) {
-	if appname == "" {
-		if FileIsExec(filename) {
-			p0 := StringSplit(filename, "/")
-			fname := p0[len(p0)-1]
-			p1 := p0[:len(p0)-1]
-			fpath := StringJoin(p1, "/")
-			if len(fpath) == 0 {
-				fpath = "/"
-			}
-			script := "cd " + ExecQuote(fpath) + " && ./" + ExecQuote(fname) + ""
-			Prln("starting[" + script + "]")
-			go ExecCommandBash(script)
-		} else {
-			safename := ExecQuote(filename)
-			if FileExtension(filename) == "desktop" {
-				go ExecCommandBash("`grep '^Exec' " + safename + " | tail -1 | sed 's/^Exec=//' | sed 's/%.//' | sed 's/^\"//g' | sed 's/\" *$//g'` &")
-			} else {
-				go ExecCommandBash("xdg-open " + safename + " &")
-			}
-		}
-	} else {
-		filetext, ok := FileTextRead("/usr/share/applications/" + appname + ".desktop")
-		if ok {
-			app := ""
-			strs := StringSplit(filetext, "\n")
-			for j := 0; j < len(strs); j++ {
-				str_j := StringDown(strs[j])
-				if StringFind(str_j, "exec=") == 1 {
-					//Prln(str_j)
-					app = StringPart(str_j, 6, 0)
-				}
-			}
-			if len(app) > 0 {
-				// %f	a single filename.
-				// %F	multiple filenames.
-				// %u	a single URL.
-				// %U	multiple URLs.
-				// %d	a single directory. Used in conjunction with %f to locate a file.
-				// %D	multiple directories. Used in conjunction with %F to locate files.
-				// %n	a single filename without a path.
-				// %N	multiple filenames without paths.
-				// %k	a URI or local filename of the location of the desktop file.
-				// %v	the name of the Device entry.
-				app = StringReplace(app, " %f", "")
-				app = StringReplace(app, " %u", "")
-				Prln("starting [" + app + "]")
-				go ExecCommandBash(ExecQuote(app) + " " + ExecQuote(filename) + " &")
-			} else {
-				Prln("no exec in desktop file...")
-			}
-		} else {
-			Prln("no desktop file...")
-		}
-	}
-}
-
-func RunFileOperaion(from []*LinuxPath, dest *LinuxPath, operation string) {
-	go func() {
-		from_str := ""
-		from_len := len(from)
-		if from_len > 0 {
-			for j := 0; j < from_len; j++ {
-				if j == 0 {
-					from_str = from[j].GetUrl()
-				} else {
-					from_str = from_str + "\n" + from[j].GetUrl()
-				}
-			}
-			a, b, c := "", "", ""
-			if dest != nil {
-				a, b, c = ExecCommand(opt.GetFileMover(), "-cmd", operation, "-src", from_str, "-dst", dest.GetUrl(), "-buf", I2S(opt.GetMoverBuffer()))
-			} else {
-				a, b, c = ExecCommand(opt.GetFileMover(), "-cmd", operation, "-src", from_str) //, "-dst", "/", "-buf", "1")
-			}
-			Prln(a + " # " + b + " # " + c)
-		} else {
-			Prln("DELETE LIST EMPTY")
-		}
-	}()
-}
-
-func FileMIME(filename string) string {
-	ext_mime, _, _ := ExecCommand("xdg-mime", "query", "filetype", filename)
-	return StringDown(StringTrim(ext_mime))
-}
-
-func AppMIME(mime_name string) string {
-	ext_app, _, _ := ExecCommand("xdg-mime", "query", "default", mime_name)
-	return StringTrim(ext_app)
-}
-
-//mimeopen -a file.txt
-//grep 'text/x-go' -R /usr/share/applications/*
-func AllAppsMIME(mime_name string) []string {
-	safe_mime := StringDown(mime_name)
-	desktops, _, _ := ExecCommandBash("grep " + ExecQuote(safe_mime+"=") + " /usr/share/applications/mimeinfo.cache")
-	arr1 := StringSplit(desktops, ";")
-	arr2 := []string{}
-	desk := ".desktop"
-	for j := 0; j < len(arr1); j++ {
-		str := StringTrim(arr1[j])
-		if StringFind(str, safe_mime+"=") == 1 {
-			str = StringPart(str, StringLength(safe_mime)+2, 0)
-		}
-		if StringEnd(str, StringLength(desk)) == desk {
-			str = StringPart(str, 1, StringLength(str)-StringLength(desk))
-		}
-		if len(str) > 0 {
-			arr2 = append(arr2, str)
-		}
-	}
-	return arr2
-}
-
-func FileIsExec(filename string) bool {
-	return FileMIME(filename) == APP_EXEC_TYPE
-}
-
-func FileIconBySystem(filename string) string {
-	print_debug := false
-
-	ext_mime := FileMIME(filename)
-
-	if len(ext_mime) > 0 {
-		fname := SYSTEM_PATH[0] + StringReplace(ext_mime, "/", "-") + ".png"
-		if FileExists(fname) {
-			if print_debug {
-				Prln(filename + " ## " + ext_mime)
-			}
-			return fname
-		} else {
-			ext_app := AppMIME(ext_mime)
-			if len(ext_app) > 0 {
-				filetext, ok := FileTextRead("/usr/share/applications/" + ext_app)
-				if ok {
-					icon := ""
-					strs := StringSplit(filetext, "\n")
-					for j := 0; j < len(strs); j++ {
-						str_j := StringDown(strs[j])
-						if StringFind(str_j, "icon=") == 1 {
-							//Prln(str_j)
-							icon = StringPart(str_j, 6, 0)
-						}
-					}
-					if len(icon) > 0 {
-						icon = SYSTEM_PATH[1] + icon + ".png"
-						if print_debug {
-							Prln("[" + filename + " ## " + ext_mime + " ## " + ext_app + "## " + icon + "]")
-							//Prln(icon)
-						}
-						return icon
-					}
-				}
-				if print_debug {
-					Prln("[" + filename + " ## " + ext_mime + " ## " + ext_app + "]")
-				}
-			}
-		}
-	}
-	return ""
-}
-
-func create_new(path string, foldermode bool) string {
-	fun := func(fullname string) bool {
-		if foldermode {
-			return FolderMake(fullname)
-		} else {
-			return FileMake(fullname)
-		}
-	}
-	fname := "New File"
-	if foldermode {
-		fname = "New Folder"
-	}
-	path2 := FolderPathEndSlash(path)
-	safe_name := FileFindFreeName(path2, fname, "", "")
-	if len(safe_name) > 0 {
-		done := fun(path2 + safe_name)
-		if done {
-			return safe_name
-		} else {
-			return ""
-		}
-	}
-	return ""
-}
-
-type DiscPart struct {
+type DiskPart struct {
 	Title        string
 	PartName     string
 	FSType       string
@@ -225,7 +22,7 @@ type DiscPart struct {
 	Model        string
 }
 
-func (p *DiscPart) String() string {
+func (p *DiskPart) String() string {
 	return p.Model + "\t[" + B2S_YN(p.Primary) + "]\t" + p.Title + "\t" + p.PartName + "\t" + p.FSType + "\t" + p.Protocol + "\t" + I2S(p.SpacePercent) + "%\t" + p.SpaceTotal + "\t[" + B2S_YN(p.Crypted) + "]\t" + p.MountPath
 }
 
@@ -239,17 +36,17 @@ func (p *DiscPart) String() string {
 // id -u
 // df -T -h "run/user/1000/gvfs/..."
 
-func GetDiscParts(local bool, remote bool, home bool, bookmarks bool) []*DiscPart {
-	var d []*DiscPart
+func Linux_DisksGetMounted(local bool, remote bool) []*DiskPart {
+	d := []*DiskPart{}
 
-	uid, login, _ := GetPC_UserUidLoginName()
+	uid, _, _ := GetPC_UserUidLoginName()
 
 	if local {
 		T_ROOT := "ROOT"
 
 		//===== FULL LIST WITH SIZE
 
-		var d_all []*DiscPart
+		var d_all []*DiskPart
 		discs_all, _, _ := ExecCommand("df", "-T", "-h")
 		//Prln(discs_all)
 		discs_arr := StringSplit(discs_all, "\n")
@@ -277,7 +74,7 @@ func GetDiscParts(local bool, remote bool, home bool, bookmarks bool) []*DiscPar
 				if t[1] == "fuseblk" {
 					prim = false
 				}
-				d_new := &DiscPart{Title: t[0], PartName: t[0], FSType: t[1], Protocol: prot, SpaceTotal: t[2], SpaceUsed: t[3], SpaceFree: t[4], SpacePercent: pr, Crypted: crypt, Primary: prim, MountPath: mount}
+				d_new := &DiskPart{Title: t[0], PartName: t[0], FSType: t[1], Protocol: prot, SpaceTotal: t[2], SpaceUsed: t[3], SpaceFree: t[4], SpacePercent: pr, Crypted: crypt, Primary: prim, MountPath: mount}
 				d_all = append(d_all, d_new)
 			}
 		}
@@ -560,7 +357,7 @@ func GetDiscParts(local bool, remote bool, home bool, bookmarks bool) []*DiscPar
 							}
 						}
 					}
-					d_new := &DiscPart{Title: title, PartName: dev, FSType: t[1], Protocol: prot, SpaceTotal: t[2], SpaceUsed: t[3], SpaceFree: t[4], SpacePercent: pr, Crypted: crypt, Primary: false, MountPath: mount, Model: mdl}
+					d_new := &DiskPart{Title: title, PartName: dev, FSType: t[1], Protocol: prot, SpaceTotal: t[2], SpaceUsed: t[3], SpaceFree: t[4], SpacePercent: pr, Crypted: crypt, Primary: false, MountPath: mount, Model: mdl}
 					d = append(d, d_new)
 				}
 			}
@@ -568,18 +365,17 @@ func GetDiscParts(local bool, remote bool, home bool, bookmarks bool) []*DiscPar
 		}
 	}
 
-	if home {
-		h := &DiscPart{Title: "<HOME>", PartName: login, FSType: "", Protocol: "HOME", SpaceTotal: "", SpaceUsed: "", SpaceFree: "", SpacePercent: 0, Crypted: false, Primary: true, MountPath: FolderLocation_UserHome(), Model: GetPC()}
-		d = append([]*DiscPart{h}, d...)
-	}
-
-	if bookmarks {
-		bmk := LinuxGetBookmarks()
-		for _, b := range bmk {
-			bm := &DiscPart{Title: b[1], PartName: b[0], FSType: "", Protocol: "BKMRK", SpaceTotal: "", SpaceUsed: "", SpaceFree: "", SpacePercent: -1, Crypted: false, Primary: true, MountPath: b[0], Model: b[0]}
-			d = append(d, bm)
-		}
-	}
-
 	return d
+}
+
+func Linux_DisksGetAllLocal() []*DiskPart {
+	//lsblk  --noheadings --raw | awk '{print substr($0,0,4)}' | uniq -c | grep 1 | awk '{print "/dev/"$2}'
+	//cat /proc/partitions
+	//sfdisk -l
+
+	//lsblk -l -n -o "MODEL,PKNAME,KNAME,LABEL,TYPE,FSTYPE,SIZE,RM,HOTPLUG,MOUNTPOINT" - best
+	d := []*DiskPart{}
+	d = d
+	//return d
+	return Linux_DisksGetMounted(true, false)
 }

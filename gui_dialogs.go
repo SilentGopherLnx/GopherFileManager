@@ -5,16 +5,19 @@ import (
 	. "github.com/SilentGopherLnx/easygolang/easygtk"
 	. "github.com/SilentGopherLnx/easygolang/easylinux"
 
+	. "./pkg_filetools"
+
 	"github.com/gotk3/gotk3/gdk"
 	"github.com/gotk3/gotk3/gtk"
 )
 
 func Dialog_FileRename(w *gtk.Window, fpath string, fname_old string, upd func()) {
-	dial, box := GTK_Dialog(w, "Rename: "+fname_old)
+	fname_prev := FilePathEndSlashRemove(fname_old)
+	dial, box := GTK_Dialog(w, "Rename: "+fname_prev)
 	dial.SetDefaultSize(350, 90)
 
 	inpname, _ := gtk.EntryNew()
-	inpname.SetText(fname_old)
+	inpname.SetText(fname_prev)
 	inpname.SetHExpand(true)
 	lbl_err, _ := gtk.LabelNew("")
 	lbl_err.SetHExpand(true)
@@ -28,9 +31,9 @@ func Dialog_FileRename(w *gtk.Window, fpath string, fname_old string, upd func()
 		// Windows (FAT32, NTFS): Any Unicode except NUL, \, /, :, *, ", <, >, |
 		// Mac(HFS, HFS+): Any valid Unicode except : or /
 		// Linux(ext[2-4]): Any byte except NUL or /
-		if safe_name != fname_old {
+		if safe_name != fname_prev {
 			fpath2 := FolderPathEndSlash(fpath)
-			ok, errtxt := FileRename(fpath2+fname_old, fpath2+safe_name)
+			ok, errtxt := FileRename(fpath2+fname_prev, fpath2+safe_name)
 			if ok {
 				dial.Close()
 				upd()
@@ -63,9 +66,9 @@ func Dialog_FileRename(w *gtk.Window, fpath string, fname_old string, upd func()
 	// dial.SetMarginBottom(0)
 
 	dial.ShowAll()
-	ind := StringFindEnd(fname_old, ".")
+	ind := StringFindEnd(fname_prev, ".")
 	if ind == 0 || ind == 1 {
-		ind = StringLength(fname_old)
+		ind = StringLength(fname_prev)
 	} else {
 		ind--
 	}
@@ -79,6 +82,7 @@ func Dialog_FileInfo(w *gtk.Window, fpath string, fnames []string) {
 	win2, err := gtk.WindowNew(gtk.WINDOW_TOPLEVEL)
 	//over := NewAtomicBool(false, [2]string{"1", "0"})
 	if err == nil {
+		kill := NewAtomicBool(false)
 		if len(fnames) == 1 {
 			win2.SetTitle("Info: \"" + fnames[0] + "\"")
 		} else {
@@ -147,7 +151,7 @@ func Dialog_FileInfo(w *gtk.Window, fpath string, fnames []string) {
 				path_info := FolderPathEndSlash(fpath) + fnames[j]
 				file_or_dir, err := FileInfo(path_info, false)
 				if err == nil {
-					FoldersRecursively_Size(mountlist, file_or_dir, path_info, src_size, src_files, src_folders, src_failed, src_irregular, src_mount, src_symlinks)
+					FoldersRecursively_Size(mountlist, file_or_dir, path_info, src_size, src_files, src_folders, src_failed, src_irregular, src_mount, src_symlinks, kill)
 				}
 			}
 			//over.Set(true)
@@ -180,6 +184,7 @@ func Dialog_FileInfo(w *gtk.Window, fpath string, fnames []string) {
 		}
 		win2.Connect("destroy", func() {
 			main_iterations_funcs.Remove(&upd_info)
+			kill.Set(true)
 		})
 
 		win2.ShowAll()

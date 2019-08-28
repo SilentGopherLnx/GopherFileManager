@@ -2,11 +2,11 @@ package main
 
 import (
 	. "github.com/SilentGopherLnx/easygolang"
-	//	. "github.com/SilentGopherLnx/easygolang/easygtk"
+	. "github.com/SilentGopherLnx/easygolang/easygtk"
 	. "github.com/SilentGopherLnx/easygolang/easylinux"
 
 	"github.com/gotk3/gotk3/gdk"
-	"github.com/gotk3/gotk3/glib"
+	//"github.com/gotk3/gotk3/glib"
 	"github.com/gotk3/gotk3/gtk"
 )
 
@@ -20,7 +20,7 @@ const OPER_CLEAR = "clear"
 // gtk_window_add_accel_group (GTK_WINDOW (window), accel_group);
 // gtk_accel_group_connect (accel_group, GDK_KEY_Q, GDK_CONTROL_MASK, 0, g_cclosure_new_swap (G_CALLBACK (hello), window, NULL));
 func GTK_CopyPasteDnd_SetWindowKeyPressed(path *LinuxPath, key uint, state uint) {
-	if state == gdk.GDK_CONTROL_MASK { // //key:65507 Ctrl
+	if GTK_KeyboardCtrl(state) { // //key:65507 Ctrl
 		if key == gdk.KEY_x { //120
 			Prln("Ctrl+X")
 			GTK_CopyPasteDnd_CopyDel(path.GetReal(), true, false)
@@ -76,35 +76,26 @@ func GTK_CopyPasteDnd_CopyDel(folderpath string, cut_mode bool, del bool) {
 }
 
 func GTK_CopyPasteDnd_Paste(folderpath string) {
-	res := LinuxClipBoard_PasteFiles()
-	Prln("GTK_CopyPasteDnd_Paste:" + res)
-	res_arr := StringSplitLines(res)
-	if len(res_arr) > 1 {
-		oper := res_arr[0]
-		res_nocmd := []*LinuxPath{}
-		for j := 1; j < len(res_arr); j++ {
-			tpath := NewLinuxPath(false) //??
-			tpath.SetUrl(res_arr[j])
-			res_nocmd = append(res_nocmd, tpath)
-		}
+	res_arr, cut_mode := LinuxClipBoard_PasteFiles()
+	if len(res_arr) > 0 {
 		fpath := NewLinuxPath(true)
 		fpath.SetReal(folderpath)
-		RunFileOperaion(res_nocmd, fpath, StringReplace(oper, "cut", OPER_MOVE))
+		RunFileOperaion(res_arr, fpath, B2S(cut_mode, OPER_MOVE, OPER_COPY))
 		LinuxClipBoard_Clear()
 	}
-	//res = UrlQueryUnescape(res)
-	lines := StringSplitLines(res)
-	if len(lines) > 3 {
-		res = StringJoin(append(lines[:3], "..."), "\n")
-		//space.SetText(res)
-		Prln(res)
-	}
+	// lines := StringSplitLines(res)
+	// if len(lines) > 3 {
+	// 	res = StringJoin(append(lines[:3], "..."), "\n")
+	// 	//space.SetText(res)
+	// 	Prln(res)
+	// }
 }
 
-func GTK_CopyPasteDnd_SetAppDest(w interface {
+/*interface {
 	DragDestSet(gtk.DestDefaults, []gtk.TargetEntry, gdk.DragAction)
 	Connect(string, interface{}, ...interface{}) (glib.SignalHandle, error)
-}) {
+}*/
+func GTK_CopyPasteDnd_SetAppDest(w *gtk.Widget) {
 	t_uri, _ := gtk.TargetEntryNew("text/uri-list", gtk.TARGET_OTHER_APP, 0)
 	w.DragDestSet(gtk.DEST_DEFAULT_ALL, []gtk.TargetEntry{*t_uri}, gdk.ACTION_COPY)
 	w.Connect("drag-data-received", func(g gtk.IWidget, ctx *gdk.DragContext, x int, y int, data_pointer uintptr, info uint, _ uint) {
@@ -125,10 +116,11 @@ func GTK_CopyPasteDnd_SetAppDest(w interface {
 	})
 }
 
-func GTK_CopyPasteDnd_SetIconSource(w interface {
+/*interface {
 	DragSourceSet(gdk.ModifierType, []gtk.TargetEntry, gdk.DragAction)
 	Connect(string, interface{}, ...interface{}) (glib.SignalHandle, error)
-}, icon *gtk.Image, getter func() []*LinuxPath) {
+}*/
+func GTK_CopyPasteDnd_SetIconSource(w *gtk.Widget, icon *gtk.Image, getter func() []*LinuxPath) {
 
 	t_uri_same, _ := gtk.TargetEntryNew("text/uri-list", gtk.TARGET_SAME_APP, 0)
 	t_uri_other, _ := gtk.TargetEntryNew("text/uri-list", gtk.TARGET_OTHER_APP, 0)
@@ -153,10 +145,11 @@ func GTK_CopyPasteDnd_SetIconSource(w interface {
 	})
 }
 
-func GTK_CopyPasteDnd_SetFolderDest(w interface {
+/*interface {
 	DragDestSet(gtk.DestDefaults, []gtk.TargetEntry, gdk.DragAction)
 	Connect(string, interface{}, ...interface{}) (glib.SignalHandle, error)
-}, dest *LinuxPath) {
+}*/
+func GTK_CopyPasteDnd_SetFolderDest(w *gtk.Widget, dest *LinuxPath) {
 
 	t_uri_same, _ := gtk.TargetEntryNew("text/uri-list", gtk.TARGET_SAME_APP, 0)
 	t_uri_other, _ := gtk.TargetEntryNew("text/uri-list", gtk.TARGET_OTHER_APP, 0)
@@ -176,4 +169,29 @@ func GTK_CopyPasteDnd_SetFolderDest(w interface {
 		Prln("d&d: received [" + dest.GetReal() + "]" + dnd_str)
 		//space.SetText("[" + filename + "]" + dnd_str)
 	})
+}
+
+func RunFileOperaion(from []*LinuxPath, dest *LinuxPath, operation string) {
+	go func() {
+		from_str := ""
+		from_len := len(from)
+		if from_len > 0 {
+			for j := 0; j < from_len; j++ {
+				if j == 0 {
+					from_str = from[j].GetUrl()
+				} else {
+					from_str = from_str + "\n" + from[j].GetUrl()
+				}
+			}
+			a, b, c := "", "", ""
+			if dest != nil {
+				a, b, c = ExecCommand(opt.GetFileMover(), "-cmd", operation, "-src", from_str, "-dst", dest.GetUrl(), "-buf", I2S(opt.GetMoverBuffer()))
+			} else {
+				a, b, c = ExecCommand(opt.GetFileMover(), "-cmd", operation, "-src", from_str) //, "-dst", "/", "-buf", "1")
+			}
+			Prln(a + " # " + b + " # " + c)
+		} else {
+			Prln("DELETE LIST EMPTY")
+		}
+	}()
 }

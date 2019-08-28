@@ -5,6 +5,8 @@ import (
 	. "github.com/SilentGopherLnx/easygolang/easygtk"
 	. "github.com/SilentGopherLnx/easygolang/easylinux"
 
+	. "./pkg_filetools"
+
 	//"github.com/gotk3/gotk3/cairo"
 	"github.com/gotk3/gotk3/gdk"
 	"github.com/gotk3/gotk3/gtk"
@@ -15,7 +17,7 @@ func listDiscs(g *gtk.Box) {
 	GTK_Childs(g, true, true) //arrd :=
 	//Prln("disc_child_len:" + I2S(len(arrd)))
 
-	discs := GetDiscParts(true, true, true, true)
+	discs := Linux_DisksGetWithBookmarks(true, true, true, true)
 
 	mountlist = LinuxGetMountList()
 

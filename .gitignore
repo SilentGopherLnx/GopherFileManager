@@ -1,6 +1,7 @@
 GopherFileManager
 FileMoverGui
-.fuse*
 options.cfg
+.fuse*
 *.sh
 test_dir/*
+test_code/*

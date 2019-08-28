@@ -4,14 +4,17 @@ import (
 	. "github.com/SilentGopherLnx/easygolang"
 	. "github.com/SilentGopherLnx/easygolang/easygtk"
 
+	. "./pkg_fileicon"
+	. "./pkg_filetools"
+
 	"github.com/gotk3/gotk3/gdk"
-	"github.com/gotk3/gotk3/gtk"
 
 	"image/color"
 	"image/jpeg"
 
 	"image"
 	"os"
+	"os/exec"
 
 	"github.com/disintegration/imageorient"
 
@@ -46,7 +49,7 @@ func getConfigValue(allinfo []string, name string, skip string) string {
 
 // sudo apt install ffmpeg
 // sudo apt install ffprobe
-func GetVideoPreviewBytes(filename string, zoom_size int) *[]byte {
+func GetVideoPreviewBytes(filename string, zoom_size int, killchan chan *exec.Cmd) *[]byte {
 	info, _, _ := ExecCommand("ffprobe", "-i", filename, "-show_format", "-show_streams")
 	//Prln("[" + filename + "]:" + info)
 	info_arr := StringSplitLines(info)
@@ -76,7 +79,7 @@ func GetVideoPreviewBytes(filename string, zoom_size int) *[]byte {
 	//"-vcodec", "libx264"
 
 	// -ss before -i is quicker !!!!!!
-	bb, _, _ := ExecCommandBytes([]byte{}, opt.GetFfmpegTimeout()*1000, "ffmpeg",
+	bb, _, _ := ExecCommandBytes([]byte{}, opt.GetFfmpegTimeout()*1000, killchan, "ffmpeg",
 		"-ss", ss,
 		"-i", filename,
 		"-vframes", "1",
@@ -91,15 +94,15 @@ func GetVideoPreviewBytes(filename string, zoom_size int) *[]byte {
 	return &bb
 }
 
-func GetPreview_VideoPixBuf(filename string, zoom_size int, save_hash bool) (*gdk.Pixbuf, bool) {
-	img2, ok2 := GetPreview_VideoImage(filename, zoom_size, save_hash)
+func GetPreview_VideoPixBuf(filename string, zoom_size int, killchan chan *exec.Cmd, req int64, save_hash bool) (*gdk.Pixbuf, bool) {
+	img2, ok2 := GetPreview_VideoImage(filename, zoom_size, killchan, req, save_hash)
 	if ok2 {
 		return GTK_PixBuf_From_RGBA(img2), true
 	}
 	return nil, false
 }
 
-func GetPreview_VideoImage(filename string, zoom_size int, save_hash bool) (image.Image, bool) {
+func GetPreview_VideoImage(filename string, zoom_size int, killchan chan *exec.Cmd, req int64, save_hash bool) (image.Image, bool) {
 	// width := zoom_size - 4
 	// height := width * 9 / 16
 	//gr := uint8(RoundF(float64(255) * BACK_GRAY_VISIBLE))
@@ -107,8 +110,12 @@ func GetPreview_VideoImage(filename string, zoom_size int, save_hash bool) (imag
 	// ffmpeg := true
 	zoom_max := Constant_ZoomMax()
 
-	fbytes := GetVideoPreviewBytes(filename, zoom_max)
+	fbytes := GetVideoPreviewBytes(filename, zoom_max, killchan)
 	if len(*fbytes) == 0 {
+		return nil, false
+	}
+	if req_id.Get() != req {
+		Prln(">>>>>>>>> SKIP VIDEO: " + filename)
 		return nil, false
 	}
 	img := ImageDecode(fbytes)
@@ -177,80 +184,6 @@ func GetPreview_ImageImage(img image.Image, zoom_size int) (*image.RGBA, bool) {
 	return img3, true
 }
 
-// func GetPixBufGTK_Image(filename string, zoom_size int) (*gdk.Pixbuf, bool) {
-// 	return GetPixBufGTK_Image_v00(filename, zoom_size)
-// }
-
-/*func GetPixBufGTK_Image_v1(filename string, zoom_size int) (*gdk.Pixbuf, bool) {
-	pixbuf, err := gdk.PixbufNewFromFile(filename)
-	if err == nil {
-		max_wh := MAXI(pixbuf.GetWidth(), pixbuf.GetHeight())
-		pixbuf2 := pixbuf
-		ok := false
-		if max_wh > zoom_size*2 {
-			pixbuf2, ok = ResizePixelBuffer(pixbuf, zoom_size*2, gdk.INTERP_NEAREST)
-			if !ok {
-				return nil, false
-			}
-		}
-		if max_wh < zoom_size {
-			return pixbuf, true
-		}
-		//pixbuf.Ref()
-		pixbuf3, ok3 := ResizePixelBuffer(pixbuf2, zoom_size, gdk.INTERP_BILINEAR)
-		//pixbuf2.Unref()
-		return pixbuf3, ok3
-	} else {
-		Prln(filename + "//") //+ err.Error())
-	}
-	return nil, false
-}
-
-func GetPixBufGTK_Image_v2(filename string, zoom_size int) (*gdk.Pixbuf, bool) {
-	ftype := GetFileExtension(filename)
-	if ftype == "jpg" {
-		ftype = "jpeg"
-	}
-	fbytes, ok := FileBytesRead(filename)
-	if ok {
-		pixbuf := GTK_PixBuf_From_Bytes(fbytes, ftype)
-		//if err == nil {
-		max_wh := MAXI(pixbuf.GetWidth(), pixbuf.GetHeight())
-		pixbuf2 := pixbuf
-		ok := false
-		if max_wh > zoom_size*2 {
-			pixbuf2, ok = ResizePixelBuffer(pixbuf, zoom_size*2, gdk.INTERP_NEAREST)
-			if !ok {
-				return nil, false
-			}
-		}
-		if max_wh < zoom_size {
-			return pixbuf, true
-		}
-		//pixbuf.Ref()
-		pixbuf3, ok3 := ResizePixelBuffer(pixbuf2, zoom_size, gdk.INTERP_BILINEAR)
-		//pixbuf2.Unref()
-		return pixbuf3, ok3
-	} else {
-		Prln(filename + "//") //+ err.Error())
-	}
-	return nil, false
-}*/
-
-func ResizePixelBuffer(pixbuf *gdk.Pixbuf, zoom_size int, interp gdk.InterpType) (*gdk.Pixbuf, bool) {
-	w_old := pixbuf.GetWidth()
-	h_old := pixbuf.GetHeight()
-	max_old := MAXI(w_old, h_old)
-	max_new := zoom_size - 4
-	w_new := MAXI(1, max_new*w_old/max_old)
-	h_new := MAXI(1, max_new*h_old/max_old)
-	pixbuf, err := pixbuf.ScaleSimple(w_new, h_new, interp)
-	if err == nil {
-		return pixbuf, true
-	}
-	return nil, false
-}
-
 // func EmptyIcon(w int, h int) *gdk.Pixbuf {
 // 	pixbuf, _ := gdk.PixbufNew(gdk.COLORSPACE_RGB, true, 8, w, h)
 // 	return pixbuf
@@ -259,16 +192,21 @@ func ResizePixelBuffer(pixbuf *gdk.Pixbuf, zoom_size int, interp gdk.InterpType)
 func CachePreview_Function(info FileReport, zoom_size int) string {
 	hash_str := ""
 	if info.IsDir() {
-		hash_str = I2S(zoom_size) + "//" + FilePathEndSlashRemove(info.FullName)
+		hash_str = FilePathEndSlashRemove(info.FullName)
 		//Prln("[[[[" + info.FullName + "]]]]")
 	} else {
-		hash_str = I2S64(info.Size()) + "/" + TimeStr(Time(info.ModTime()), true) + "/" + info.Name() // REMOVE ZOOM_SIZE!
+		hash_str = I2S64(info.Size()) + "/" + TimeStr(Time(info.ModTime()), true) + "/" + info.Name()
 	}
 	md5 := Crypto_MD5([]byte(hash_str))
 	//md5 = StringReplace(hash_str, "/", "_")
 	//Prln("md5:" + md5)
 	//Prln("sha1:" + Crypto_SHA1([]byte(hash_str)))
-	return md5
+	if info.IsDir() {
+		return "D-" + I2S(zoom_size) + "_" + md5
+	} else {
+
+		return "F-" + StringUp(FileExtension(info.Name())) + "_" + md5
+	}
 }
 
 func CachePreview_ReadPixbuf(info FileReport, zoom_size int, alphamask *image.RGBA) *gdk.Pixbuf {
@@ -334,7 +272,7 @@ func CachePreview_WriteImage(info FileReport, zoom_size int, img image.Image) bo
 	return false
 }
 
-func GetPixBufGTK_Folder(folderpath string, zoom_size int, basic_mode bool, qu *SyncQueue, icon_msg *IconUpdateable) (*gdk.Pixbuf, bool) {
+func GetPixBufGTK_Folder(folderpath string, zoom_size int, basic_mode bool, qu *SyncQueue, killchan chan *exec.Cmd, req int64) (*gdk.Pixbuf, bool) { // icon_msg *IconUpdateable
 	folderpath2 := FolderPathEndSlash(folderpath)
 	imgRGBA := GetIcon_ImageFolder(zoom_size)
 	scale := zoom_size / 64
@@ -383,7 +321,7 @@ func GetPixBufGTK_Folder(folderpath string, zoom_size int, basic_mode bool, qu *
 		if iconfiles > 0 {
 			imgs2, mimetypes = best_file_icons(folderpath2, files, iconfiles, zoom_size, basic_mode)
 			if !basic_mode {
-				imgs2, changed = replace_mime_images(folderpath2, files, imgs2, mimetypes, zoom_size)
+				imgs2, changed = replace_mime_images(folderpath2, files, imgs2, mimetypes, zoom_size, killchan, req)
 			}
 			mimetypes[0] = mimetypes[0] //used for compile
 		}
@@ -416,7 +354,11 @@ func GetPixBufGTK_Folder(folderpath string, zoom_size int, basic_mode bool, qu *
 	}
 
 	if numfiles > 0 || numdirs > 0 {
-		CachePreview_WriteImage(FileReport{FullName: FilePathEndSlashRemove(folderpath2), IsDirectory: true}, zoom_size, imgRGBA)
+		if req_id.Get() != req {
+			Prln(">>>>>>>>> SKIP FOLDER CACHE PIC: " + folderpath2)
+		} else {
+			CachePreview_WriteImage(FileReport{FullName: FilePathEndSlashRemove(folderpath2), IsDirectory: true}, zoom_size, imgRGBA)
+		}
 	}
 
 	pixbuf := GTK_PixBuf_From_RGBA(imgRGBA)
@@ -498,7 +440,7 @@ func best_file_icons(folderpath string, files []FileReport, maxicons int, zoom_s
 	return imgs, mimes
 }
 
-func replace_mime_images(folderpath string, files []FileReport, imgs []image.Image, mimes []string, zoom_size int) ([]image.Image, bool) {
+func replace_mime_images(folderpath string, files []FileReport, imgs []image.Image, mimes []string, zoom_size int, killchan chan *exec.Cmd, req int64) ([]image.Image, bool) {
 	mime_image := PREFIX_DRAWONME + FILE_TYPE_IMAGE
 	mime_video := PREFIX_DRAWONME + FILE_TYPE_MOVIE
 	imgs2 := []image.Image{}
@@ -518,69 +460,51 @@ func replace_mime_images(folderpath string, files []FileReport, imgs []image.Ima
 					file_j = j + 1
 					f := files[j]
 					if !f.IsDir() {
-						tfile := FileExtension(f.Name())
-						if StringInArray(tfile, MIME_IMAGE) > -1 {
-							fbytes, ok := FileBytesRead(folderpath + f.Name())
-							if ok {
-								img_new := ImageDecodeCustom(fbytes, fr)
-								if img_new != nil {
-									zoom_size2 := ZoomSmall(zoom_size)
-									zoom_size3 := zoom_size2 - zoom_size/32
-									w := img_new.Bounds().Max.X
-									h := img_new.Bounds().Max.Y
-									if w > 1 && h > 1 {
-										max_old := MAXI(w, h)
-										w_new := w
-										h_new := h
-										var img_new2 *image.RGBA
-										if max_old > zoom_size3 {
-											w_new = MAXI(1, zoom_size3*w*2/max_old)
-											h_new = MAXI(1, zoom_size3*h*2/max_old)
-											img_new = ImageResizeNearest(img_new, w_new, h_new)
-											img_new2 = image.NewRGBA(image.Rect(0, 0, zoom_size2*2, zoom_size2*2))
-											ImageAddOver(img_new2, img_new, zoom_size2-w_new/2, zoom_size2-h_new/2)
-											img_new2 = ImageResizeHalfNice(img_new2)
-										} else {
-											img_new2 = image.NewRGBA(image.Rect(0, 0, zoom_size2, zoom_size2))
-											ImageAddOver(img_new2, img_new, (zoom_size2-w_new)/2, (zoom_size2-h_new)/2)
+						if req_id.Get() != req {
+							Prln("////////////////// SKIP: " + f.Name())
+						} else {
+							tfile := FileExtension(f.Name())
+							if StringInArray(tfile, MIME_IMAGE) > -1 {
+								fbytes, ok := FileBytesRead(folderpath + f.Name())
+								if ok {
+									img_new := ImageDecodeCustom(fbytes, fr)
+									if img_new != nil {
+										zoom_size2 := ZoomSmall(zoom_size)
+										zoom_size3 := zoom_size2 - zoom_size/32
+										w := img_new.Bounds().Max.X
+										h := img_new.Bounds().Max.Y
+										if w > 1 && h > 1 {
+											max_old := MAXI(w, h)
+											w_new := w
+											h_new := h
+											var img_new2 *image.RGBA
+											if max_old > zoom_size3 {
+												w_new = MAXI(1, zoom_size3*w*2/max_old)
+												h_new = MAXI(1, zoom_size3*h*2/max_old)
+												img_new = ImageResizeNearest(img_new, w_new, h_new)
+												img_new2 = image.NewRGBA(image.Rect(0, 0, zoom_size2*2, zoom_size2*2))
+												ImageAddOver(img_new2, img_new, zoom_size2-w_new/2, zoom_size2-h_new/2)
+												img_new2 = ImageResizeHalfNice(img_new2)
+											} else {
+												img_new2 = image.NewRGBA(image.Rect(0, 0, zoom_size2, zoom_size2))
+												ImageAddOver(img_new2, img_new, (zoom_size2-w_new)/2, (zoom_size2-h_new)/2)
+											}
+											exist = true
+											imgs2 = append(imgs2, img_new2)
 										}
-										exist = true
-										imgs2 = append(imgs2, img_new2)
+									} else {
+										Prln("??" + f.Name())
 									}
-								} else {
-									Prln("??" + f.Name())
 								}
 							}
-						}
-						if StringInArray(tfile, MIME_VIDEO) > -1 {
-							zoom_size2 := ZoomSmall(zoom_size)
-							img_new, ok2 := GetPreview_VideoImage(f.FullName, zoom_size2, true)
-							if ok2 {
-								exist = true
-								imgs2 = append(imgs2, img_new)
+							if StringInArray(tfile, MIME_VIDEO) > -1 {
+								zoom_size2 := ZoomSmall(zoom_size)
+								img_new, ok2 := GetPreview_VideoImage(f.FullName, zoom_size2, killchan, req, true)
+								if ok2 {
+									exist = true
+									imgs2 = append(imgs2, img_new)
+								}
 							}
-							// img_cache := CachePreview_ReadImage(f, zoom_size2, nil)
-							// if img_cache != nil {
-							// 	Prln("loaded cached video preview for folder [" + f.FullName + "]")
-							// 	exist = true
-							// 	imgs2 = append(imgs2, img_cache2)
-							// } else {
-							// 	fbytes := GetVideoPreviewBytes(folderpath+f.Name(), zoom_size2)
-							// 	if fbytes != nil && len(*fbytes) > 0 {
-							// 		img_new := ImageDecode(fbytes)
-							// 		if img_new != nil {
-							// 			img_new2 := image.NewRGBA(image.Rect(0, 0, zoom_size2, zoom_size2))
-							// 			w_new := img_new.Bounds().Max.X
-							// 			h_new := img_new.Bounds().Max.Y
-							// 			if w_new >= 8 && h_new >= 8 {
-							// 				ImageAddOver(img_new2, img_new, (zoom_size2-w_new)/2, (zoom_size2-h_new)/2)
-							// 				exist = true
-							// 				imgs2 = append(imgs2, img_new2)
-							// 				go CachePreview_WriteImage(f, zoom_size2, img_new2)
-							// 			}
-							// 		}
-							// 	}
-							// }
 						}
 					}
 				}
@@ -593,51 +517,4 @@ func replace_mime_images(folderpath string, files []FileReport, imgs []image.Ima
 		}
 	}
 	return imgs2, changed
-}
-
-type IconUpdateable struct {
-	icon           *gtk.Image
-	loading        *gtk.Image
-	fullname       string
-	fname          string
-	tfile          string
-	pixbuf_preview *gdk.Pixbuf
-	basic_mode     bool
-	folder         bool
-	oldbuf         bool //have loaded old preview
-	success        bool
-}
-
-func IconThread(icon_chan chan *IconUpdateable, qu *SyncQueue, thread_id int) { // qu *queue.Queue
-	for {
-		/*Prln("[" + I2S(thread_id) + "]Waiting..")
-		runtime.Gosched()
-		Sleep(5)*/
-		msg := <-icon_chan
-		num_works.Add(1)
-		if GTK_WidgetExist(msg.icon) {
-			//var pixbuf_preview *gdk.Pixbuf
-			var ok = false
-			if msg.folder {
-				//if !msg.basic_mode {
-				msg.pixbuf_preview, ok = GetPixBufGTK_Folder(msg.fullname, ZOOM_SIZE, msg.basic_mode, qu, msg)
-				//}
-			} else {
-				if StringInArray(msg.tfile, MIME_IMAGE) > -1 {
-					msg.pixbuf_preview, ok = GetPreview_ImagePixBuf(msg.fullname, ZOOM_SIZE)
-				}
-				if !msg.basic_mode && StringInArray(msg.tfile, MIME_VIDEO) > -1 {
-					msg.pixbuf_preview, ok = GetPreview_VideoPixBuf(msg.fullname, ZOOM_SIZE, true)
-				}
-			}
-			if ok {
-				msg.success = true
-				qu.Append(msg)
-			} else {
-				qu.Append(msg)
-			}
-		}
-		num_works.Add(-1)
-		RuntimeGosched()
-	}
 }
