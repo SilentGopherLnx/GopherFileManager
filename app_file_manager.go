@@ -38,13 +38,16 @@ var gGCenter *gtk.Paned
 var sLeftScroll, sRightScroll *gtk.ScrolledWindow
 var gGFiles *gtk.Grid
 var gGDiscs *gtk.Box
-var gInpPath *gtk.Entry
+var gInpPath, gInpSearch *gtk.Entry
 var gBtnUp *gtk.Button
 var gBtnRefresh *gtk.Button
 var mem, space *gtk.Label
+var gBtnBack, gBtnForward *gtk.Button
 
 var path *LinuxPath = NewLinuxPath(true)
-var path_updated = NewAtomicInt(0)
+
+//var path_updated = NewAtomicInt(0)
+var req_id = NewAtomicInt64(0)
 
 var icon_block_max_n_old, icon_block_max_w_old int
 
@@ -85,7 +88,8 @@ var upd_func func()
 
 //var killchan chan *exec.Cmd
 
-var req_id *AInt64 = NewAtomicInt64(0)
+var spinnerIcons *gtk.Spinner
+var spinnerFiles *gtk.Spinner
 
 func init() {
 
@@ -151,18 +155,7 @@ func main() {
 
 	// ================
 
-	gBtnUp, _ = gtk.ButtonNewWithLabel("Up")
-	//gBtnUp.SetProperty("background-color", "red")
-	//img1 := GTK_Image_From_File(appdir+"gui/button_up.png", "png")
-	img1 := GTK_Image_From_Name("go-up", gtk.ICON_SIZE_BUTTON)
-	gBtnUp.SetImage(img1)
-	gBtnUp.SetProperty("always-show-image", true)
-	gBtnUp.Connect("clicked", func() {
-		path.GoUp()
-		gInpPath.SetText(path.GetVisual())
-		listFiles(gGFiles, path.GetReal(), true)
-	})
-	gBtnUp.SetCanFocus(false)
+	spinnerFiles, _ = gtk.SpinnerNew()
 
 	gInpPath, _ = gtk.EntryNew()
 	gInpPath.SetText(path.GetVisual())
@@ -172,11 +165,52 @@ func main() {
 		gInpPath.SetCanFocus(true)
 	})
 
+	gInpSearch, _ = gtk.EntryNew()
+	gInpSearch.SetText("")
+	gInpSearch.SetHExpand(true)
+	//gInpSearch.SetHAlign(gtk.ALIGN_FILL)
+	gInpSearch.SetPlaceholderText("search:")
+	gInpSearch.Connect("button-press-event", func() {
+		gInpSearch.SetCanFocus(true)
+	})
+
+	gBtnUp, _ = gtk.ButtonNewWithLabel("Up")
+	//gBtnUp.SetProperty("background-color", "red")
+	//img1 := GTK_Image_From_File(appdir+"gui/button_up.png", "png")
+	img1 := GTK_Image_From_Name("go-up", gtk.ICON_SIZE_BUTTON)
+	gBtnUp.SetImage(img1)
+	gBtnUp.SetProperty("always-show-image", true)
+	gBtnUp.Connect("clicked", func() {
+		path.GoUp()
+		gInpPath.SetText(path.GetVisual())
+		gInpSearch.SetText("")
+		listFiles(gGFiles, path, true)
+	})
+	gBtnUp.SetCanFocus(false)
+
 	upd_func = func() {
 		tpath, _ := gInpPath.GetText()
 		path.SetVisual(tpath)
-		listFiles(gGFiles, path.GetReal(), true)
+		listFiles(gGFiles, path, true)
 	}
+
+	gBtnBack, _ = gtk.ButtonNewWithLabel("Back")
+	img_bk := GTK_Image_From_Name("go-previous", gtk.ICON_SIZE_BUTTON)
+	gBtnBack.SetImage(img_bk)
+	gBtnBack.SetProperty("always-show-image", true)
+	gBtnBack.Connect("clicked", func() {
+
+	})
+	gBtnBack.SetCanFocus(false)
+
+	gBtnForward, _ = gtk.ButtonNewWithLabel("Forward")
+	img_fw := GTK_Image_From_Name("go-next", gtk.ICON_SIZE_BUTTON)
+	gBtnForward.SetImage(img_fw)
+	gBtnForward.SetProperty("always-show-image", true)
+	gBtnForward.Connect("clicked", func() {
+
+	})
+	gBtnForward.SetCanFocus(false)
 
 	gBtnRefresh, _ = gtk.ButtonNewWithLabel("Reload")
 	//img2 := GTK_Image_From_File(appdir+"gui/button_reload.png", "png")
@@ -188,19 +222,26 @@ func main() {
 	})
 	gBtnRefresh.SetCanFocus(false)
 
-	// gGTop, _ := gtk.GridNew()
-	// gGTop.SetOrientation(gtk.ORIENTATION_HORIZONTAL)
-	// gGTop.Attach(gBtnUp, 0, 0, 1, 1)
-	// gGTop.Attach(gInpPath, 1, 0, 1, 1)
-	// gGTop.Attach(gBtnRefresh, 2, 0, 1, 1)
+	gGTop1, _ := gtk.GridNew()
+	gGTop1.SetOrientation(gtk.ORIENTATION_HORIZONTAL)
+	//gGTop1.Attach(gBtnBack, 0, 0, 1, 1)
+	//gGTop1.Attach(gBtnForward, 1, 0, 1, 1)
+	gGTop1.Attach(gBtnUp, 2, 0, 1, 1)
+	//gGTop1.Attach(gInpPath, 3, 0, 1, 1)
+
+	gGTop2, _ := gtk.GridNew()
+	gGTop2.SetOrientation(gtk.ORIENTATION_HORIZONTAL)
+	gGTop2.Attach(gInpPath, 0, 0, 1, 1)
+	gGTop2.Attach(gInpSearch, 1, 0, 1, 1)
+	gGTop2.Attach(spinnerFiles, 2, 0, 1, 1)
+	gGTop2.Attach(gBtnRefresh, 3, 0, 1, 1)
 
 	header, _ := gtk.HeaderBarNew()
-	//header.Add(gBtnUp)
-	header.PackStart(gBtnUp)
-	//header.Add(gInpPath)
-	header.SetCustomTitle(gInpPath)
-	//header.Add(gBtnRefresh)
-	header.PackEnd(gBtnRefresh)
+	header.Add(gGTop1)
+	//header.PackStart(gGTop1)
+	//header.SetCustomTitle(gInpPath)
+	header.SetCustomTitle(gGTop2)
+	//header.PackEnd(gGTop2)
 	header.SetHExpand(true)
 
 	// ================
@@ -255,11 +296,12 @@ func main() {
 	})
 	rightEv.Connect("button-press-event", func(_ *gtk.EventBox, event *gdk.Event) {
 		gInpPath.SetCanFocus(false)
+		gInpSearch.SetCanFocus(false)
 		mousekey, _, _, zone := FilesSelector_MousePressed(event, sRightScroll)
 		if mousekey == 3 && zone {
 			if rightmenu == nil || !rightmenu.IsVisible() {
 				rightmenu, _ = gtk.MenuNew()
-				GTKMenu_CurrentFolder(rightmenu, path.GetReal())
+				GTKMenu_CurrentFolder(rightmenu, *path)
 				rightmenu.ShowAll()
 				rightmenu.PopupAtPointer(event)
 			} else {
@@ -313,7 +355,7 @@ func main() {
 	rezoom := func() {
 		GTK_Childs(gGFiles, true, true)
 		//path, _ = gInpPath.GetText()
-		listFiles(gGFiles, path.GetReal(), true)
+		listFiles(gGFiles, path, true)
 		resize_event_no_repeats()
 	}
 
@@ -373,7 +415,7 @@ func main() {
 	gCheckPreviewCache.Connect("clicked", func() {
 		with_cache_preview = gCheckPreviewCache.GetActive()
 		if with_cache_preview {
-			listFiles(gGFiles, path.GetReal(), true)
+			listFiles(gGFiles, path, true)
 		}
 	})
 
@@ -382,7 +424,7 @@ func main() {
 	gCheckPreviewFolders.Connect("clicked", func() {
 		with_folders_preview = gCheckPreviewFolders.GetActive()
 		if with_folders_preview {
-			listFiles(gGFiles, path.GetReal(), true)
+			listFiles(gGFiles, path, true)
 		}
 	})
 	gCheckPreviewFiles, _ := gtk.CheckButtonNewWithLabel("preview files")
@@ -390,13 +432,16 @@ func main() {
 	gCheckPreviewFiles.Connect("clicked", func() {
 		with_files_preview = gCheckPreviewFiles.GetActive()
 		if with_files_preview {
-			listFiles(gGFiles, path.GetReal(), true)
+			listFiles(gGFiles, path, true)
 		}
 	})
+
+	spinnerIcons, _ = gtk.SpinnerNew()
 
 	gGDown, _ := gtk.GridNew()
 	gGDown.SetOrientation(gtk.ORIENTATION_HORIZONTAL)
 	//gGDown.Attach(gBtnGarbage, 0, 0, 1, 1)
+	gGDown.Attach(spinnerIcons, 0, 0, 1, 1)
 	gGDown.Attach(mem, 1, 0, 1, 1)
 	gGDown.Attach(space, 2, 0, 1, 1)
 	gGDown.Attach(gCheckDragCopy, 3, 0, 1, 1)
@@ -412,7 +457,7 @@ func main() {
 	//Prln(I2S(int(gdk.KEY_c)))
 
 	win.Connect("key-press-event", func(win *gtk.Window, ev *gdk.Event) {
-		if !gInpPath.IsFocus() { //gGFiles.HasVisibleFocus() || gGFiles.HasFocus() || gGFiles.IsFocus() {
+		if !gInpPath.IsFocus() && !gInpSearch.IsFocus() { //gGFiles.HasVisibleFocus() || gGFiles.HasFocus() || gGFiles.IsFocus() {
 			key, state := GTK_KeyboardKeyOfEvent(ev)
 			key, state = GTK_KeyboardTranslateLayoutEnglish(key, state)
 			GTK_CopyPasteDnd_SetWindowKeyPressed(path, key, state)
@@ -449,7 +494,7 @@ func main() {
 	}
 
 	listDiscs(gGDiscs)
-	listFiles(gGFiles, path.GetReal(), true)
+	listFiles(gGFiles, path, true)
 
 	pid := AppProcessID()
 	Prln("PID:" + I2S(pid))

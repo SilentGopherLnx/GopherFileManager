@@ -194,3 +194,18 @@ func Dialog_FileInfo(w *gtk.Window, fpath string, fnames []string) {
 		Prln(err.Error())
 	}
 }
+
+func Dialog_FolderError(w *gtk.Window, err error, path_visual string) {
+	Prln("ERROR DIALOG")
+	dial, box := GTK_Dialog(w, "Error")
+
+	lbl_err, _ := gtk.LabelNew(StringFill(err.Error(), 20))
+
+	box.SetOrientation(gtk.ORIENTATION_VERTICAL)
+	box.Add(lbl_err)
+
+	dial.SetResizable(false)
+	dial.ShowAll()
+	dial.Run()
+	dial.Close()
+}

@@ -18,7 +18,6 @@ func listDiscs(g *gtk.Box) {
 	//Prln("disc_child_len:" + I2S(len(arrd)))
 
 	discs := Linux_DisksGetWithBookmarks(true, true, true, true)
-
 	mountlist = LinuxGetMountList()
 
 	for j, di := range discs {
@@ -33,8 +32,12 @@ func listDiscs(g *gtk.Box) {
 		gDBtn.Connect("clicked", func() {
 			//tpath := NewLinuxPath(true)
 			path.SetReal(p)
+			if StringPart(p, 1, 1) == "_" {
+				path.SetVisual(StringPart(p, 2, 0))
+			}
 			gInpPath.SetText(path.GetVisual())
-			listFiles(gGFiles, path.GetReal(), true)
+			gInpSearch.SetText("")
+			listFiles(gGFiles, path, true)
 		})
 		gDBtn.SetHExpand(false)
 
@@ -70,7 +73,7 @@ func listDiscs(g *gtk.Box) {
 			grid.Attach(lbl3, 0, 1, 2, 1)
 		}
 
-		if j > 0 && d.SpacePercent > -1 {
+		if j > 1 && d.SpacePercent > -1 {
 			lbl4, _ := gtk.LabelNew(d.PartName)
 			if extra {
 				lbl4.SetText(d.Model)

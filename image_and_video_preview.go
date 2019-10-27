@@ -9,12 +9,16 @@ import (
 
 	"github.com/gotk3/gotk3/gdk"
 
-	"image/color"
-	"image/jpeg"
-
-	"image"
 	"os"
 	"os/exec"
+
+	"golang.org/x/image/font"
+	"golang.org/x/image/font/basicfont"
+	"golang.org/x/image/math/fixed"
+
+	"image"
+	"image/color"
+	"image/jpeg"
 
 	"github.com/disintegration/imageorient"
 
@@ -49,7 +53,7 @@ func getConfigValue(allinfo []string, name string, skip string) string {
 
 // sudo apt install ffmpeg
 // sudo apt install ffprobe
-func GetVideoPreviewBytes(filename string, zoom_size int, killchan chan *exec.Cmd) *[]byte {
+func GetVideoPreviewBytes(filename string, zoom_size int, killchan chan *exec.Cmd) (*[]byte, int) {
 	info, _, _ := ExecCommand("ffprobe", "-i", filename, "-show_format", "-show_streams")
 	//Prln("[" + filename + "]:" + info)
 	info_arr := StringSplitLines(info)
@@ -61,7 +65,8 @@ func GetVideoPreviewBytes(filename string, zoom_size int, killchan chan *exec.Cm
 	if ind > 0 {
 		seconds_str2 = StringPart(seconds_str2, 1, ind-1)
 	}
-	seconds := MINI(MAXI(1, S2I(seconds_str2)*opt.GetVideoPercent()/100), 5000) //40*60=1800
+	duration := S2I(seconds_str2)
+	seconds := MINI(MAXI(1, duration*opt.GetVideoPercent()/100), 5000) //40*60=1800
 	if w_old == 0 || h_old == 0 {
 		w_old = 16
 		h_old = 9
@@ -91,7 +96,7 @@ func GetVideoPreviewBytes(filename string, zoom_size int, killchan chan *exec.Cm
 		"-f", "singlejpeg", "-")
 
 	//Prln("BYTES:" + string(bb))
-	return &bb
+	return &bb, duration
 }
 
 func GetPreview_VideoPixBuf(filename string, zoom_size int, killchan chan *exec.Cmd, req int64, save_hash bool) (*gdk.Pixbuf, bool) {
@@ -103,14 +108,13 @@ func GetPreview_VideoPixBuf(filename string, zoom_size int, killchan chan *exec.
 }
 
 func GetPreview_VideoImage(filename string, zoom_size int, killchan chan *exec.Cmd, req int64, save_hash bool) (image.Image, bool) {
-	// width := zoom_size - 4
-	// height := width * 9 / 16
-	//gr := uint8(RoundF(float64(255) * BACK_GRAY_VISIBLE))
-	// colorT := color.RGBA{gr, gr, gr, 0}
-	// ffmpeg := true
+	gr := uint8(RoundF(float64(255) * BACK_GRAY_VISIBLE))
+	colorTransp := color.RGBA{gr, gr, gr, 0}
+	colorText := color.RGBA{200, 255, 255, 255}
+
 	zoom_max := Constant_ZoomMax()
 
-	fbytes := GetVideoPreviewBytes(filename, zoom_max, killchan)
+	fbytes, dur := GetVideoPreviewBytes(filename, zoom_max, killchan)
 	if len(*fbytes) == 0 {
 		return nil, false
 	}
@@ -118,14 +122,39 @@ func GetPreview_VideoImage(filename string, zoom_size int, killchan chan *exec.C
 		Prln(">>>>>>>>> SKIP VIDEO: " + filename)
 		return nil, false
 	}
-	img := ImageDecode(fbytes)
+	img := ImageDecodeRGBA(fbytes, colorTransp)
+	txt := "~" + I2S(RoundF(float64(dur)/60.0)) + "m"
+	ImageText26x6_Bold(img, 5, 5, colorText, txt)
 	if save_hash && !InterfaceNil(img) {
 		info, err := FileInfo(filename, false)
 		if err == nil {
-			CachePreview_WriteImage(info, 0, img)
+			CachePreview_WriteImage(&info, 0, img)
 		}
 	}
 	return GetPreview_ImageImage(img, zoom_size)
+}
+
+func ImageText26x6_Bold(img *image.RGBA, x, y int, col color.RGBA, label string) {
+	colorBlack := color.RGBA{0, 0, 0, 255}
+	for j := y - 1; j <= y+1; j++ {
+		for i := x - 1; i <= x+1; i++ {
+			if !(i == x && j == y) {
+				ImageText26x6(img, i, j, colorBlack, label)
+			}
+		}
+	}
+	ImageText26x6(img, x, y, col, label)
+}
+
+func ImageText26x6(img *image.RGBA, x, y int, col color.RGBA, label string) {
+	point := fixed.Point26_6{fixed.Int26_6(x * 64), fixed.Int26_6((y + 10) * 64)}
+	d := &font.Drawer{
+		Dst:  img,
+		Src:  image.NewUniform(col),
+		Face: basicfont.Face7x13,
+		Dot:  point,
+	}
+	d.DrawString(label)
 }
 
 func GetPreview_ImagePixBuf(filename string, zoom_size int) (*gdk.Pixbuf, bool) {
@@ -189,7 +218,7 @@ func GetPreview_ImageImage(img image.Image, zoom_size int) (*image.RGBA, bool) {
 // 	return pixbuf
 // }
 
-func CachePreview_Function(info FileReport, zoom_size int) string {
+func CachePreview_Function(info *FileReport, zoom_size int) string {
 	hash_str := ""
 	if info.IsDir() {
 		hash_str = FilePathEndSlashRemove(info.FullName)
@@ -209,11 +238,11 @@ func CachePreview_Function(info FileReport, zoom_size int) string {
 	}
 }
 
-func CachePreview_ReadPixbuf(info FileReport, zoom_size int, alphamask *image.RGBA) *gdk.Pixbuf {
+func CachePreview_ReadPixbuf(info *FileReport, zoom_size int, alphamask *image.RGBA) *gdk.Pixbuf {
 	return GTK_PixBuf_From_RGBA(CachePreview_ReadImage(info, zoom_size, alphamask))
 }
 
-func CachePreview_ReadImage(info FileReport, zoom_size int, alphamask *image.RGBA) *image.RGBA {
+func CachePreview_ReadImage(info *FileReport, zoom_size int, alphamask *image.RGBA) *image.RGBA {
 	hash_str := CachePreview_Function(info, zoom_size)
 	data, ok := FileBytesRead(opt.GetHashFolder() + hash_str + ".jpg")
 
@@ -260,7 +289,7 @@ func CachePreview_ReadImage(info FileReport, zoom_size int, alphamask *image.RGB
 	}
 }
 
-func CachePreview_WriteImage(info FileReport, zoom_size int, img image.Image) bool {
+func CachePreview_WriteImage(info *FileReport, zoom_size int, img image.Image) bool {
 	hash_str := CachePreview_Function(info, zoom_size)
 	f, err1 := os.Create(opt.GetHashFolder() + hash_str + ".jpg")
 	if err1 == nil {
@@ -357,7 +386,7 @@ func GetPixBufGTK_Folder(folderpath string, zoom_size int, basic_mode bool, qu *
 		if req_id.Get() != req {
 			Prln(">>>>>>>>> SKIP FOLDER CACHE PIC: " + folderpath2)
 		} else {
-			CachePreview_WriteImage(FileReport{FullName: FilePathEndSlashRemove(folderpath2), IsDirectory: true}, zoom_size, imgRGBA)
+			CachePreview_WriteImage(&FileReport{FullName: FilePathEndSlashRemove(folderpath2), IsDirectory: true}, zoom_size, imgRGBA)
 		}
 	}
 

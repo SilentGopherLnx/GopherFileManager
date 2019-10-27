@@ -16,8 +16,24 @@ func Thread_Main() {
 	gtk.MainIteration()
 	RuntimeGosched()
 	for {
+		if async != nil {
+			updated, data, finish, err := async.CheckUpdatesFinished()
+			if updated && !finish {
+				lpath2 := FolderPathEndSlash(path.GetReal())
+				AddFilesToList(gGFiles, data, lpath2, req_id.Get())
+			}
+			if finish {
+				err = err
+				spinnerFiles.Stop()
+				if err != nil {
+					Dialog_FolderError(win, err, path.GetVisual())
+				}
+				async = nil
+			}
+		}
+
 		if fswatcher.IsUpdated() {
-			listFiles(gGFiles, path.GetReal(), false)
+			listFiles(gGFiles, path, false)
 		}
 		gtk.MainIteration()
 		qlen := qu.Length()
@@ -50,6 +66,17 @@ func Thread_Main() {
 		//	iter = 0
 		mem.SetText(I2S(num_works.Get()) + " processes; RAM Usage: " + F2S(GetPC_MemoryUsageMb(), 1) + " Mb & " + usage)
 		main_iterations_funcs.ExecAll()
+
+		if num_works.Get() == 0 {
+			if GTK_SpinnerActive(spinnerIcons, true) {
+				spinnerIcons.Stop()
+			}
+		} else {
+			if !GTK_SpinnerActive(spinnerIcons, false) {
+				spinnerIcons.Start()
+			}
+		}
+
 		//}
 		//RuntimeGosched()
 		//debug.FreeOSMemory()

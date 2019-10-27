@@ -5,6 +5,8 @@ I wanted to create **Linux file manager with "folder trumbnails"** like in Dolpi
 
 Source code is so bad now. It will be added later... Look here for executable file https://github.com/SilentGopherLnx/screenshots_and_binaries/tree/master/BIN64_GopherFileManagerFileMoverGui
 
+![screenshot](https://github.com/SilentGopherLnx/screenshots_and_binaries/blob/master/SCREENS_GopherFileManagerFileMoverGui/manager_00.png)
+
 ![screenshot](https://github.com/SilentGopherLnx/screenshots_and_binaries/blob/master/SCREENS_GopherFileManagerFileMoverGui/manager_01.png)
 
 ![screenshot](https://github.com/SilentGopherLnx/screenshots_and_binaries/blob/master/SCREENS_GopherFileManagerFileMoverGui/manager_02.png)
@@ -35,6 +37,10 @@ https://github.com/SilentGopherLnx/easygolang
 - https://github.com/biessek/golang-ico
 - https://github.com/jsummers/gobmp
 
+5) correct image rotation from exif
+- https://github.com/disintegration/imageorient
+- https://github.com/disintegration/gift
+
 # Dependencies of PROGRAMS:
 1) Compiled version of my **"FileMoverGui"** written on golang too
 https://github.com/SilentGopherLnx/FileMoverGui
@@ -57,15 +63,16 @@ https://github.com/SilentGopherLnx/FileMoverGui
 App is under development and not versionized (you can see version if run with one argument "-v")
 
 **Not all functions are implemented and realised as planned!** need to do:
-- multiple files select for copy/cut/paste/delete/info
-- Ctrl+C,Ctrl+V, F2, Delete hot keys
-- listing all remote pc on network, list folders of one remote pc & mounting remote folders
-- searching files results
+1) "hard-to-do":
+- ~~**async file list loading** by os.File.Readdir(1+) (ioutil.ReadDir() or os.File.Readdir(-1) is slow if mpt/webdav protocol)~~
+- ~~**listing all remote pc on network, list folders of one remote pc**~~
+- ~~**searching files** results~~
+- **mounting remote folders** & **mounting local (unmounted or encrypted) folders**
+2) easy (so, it will be done later):
 - history of location ("back button" fo path)
-- some small features like sorting, favorite folders editing
+- some small features like ~~sorting~~, favorite folders editing
 - hash folder automatic clear for too old preview-images
 - list style show of file list
-- async file list loading by "ls -U -a -p -1" (ioutil.ReadDir() is slow if mpt/webdav protocol)
 - and so on
 
 **possible futures in far-far future:**
@@ -74,9 +81,15 @@ App is under development and not versionized (you can see version if run with on
 - trash for deleted files
 - 4K display support
 
+**NEW:**
+- 0.2.0 - added multiple select files by mouse + hotkeys (Ctrl+C,Ctrl+V,Del)
+- 0.2.1 - hotkeys F2,F5,Ctrl+A; info for multiseleced files; copy folder near itself
+- 0.2.2 - new cache method, exif orientation, paste into in menu, russian keyboard shortcuts fix
+- **0.3.0** - async file list loading! searching files! network listing! movie files length on icon
 
 # Platform & License:
-**Only Linux!** Tested only on amd64 on Cinnamon desktop (Linux Mint 19).
+**Only Linux!** Tested mostly on amd64 on Cinnamon desktop (Linux Mint 19).
+Also tested once on Gentoo 17 (gnome 3) amd64.
 
 Windows support is NOT planned
 
@@ -88,3 +101,4 @@ Open "View/Options" and change if you need:
  - Path to **hash folder** for trumbnails. Create it id not exist or choose another! 
  - System file manager name ("nemo" is default)
  - System terminal name ("gnome-terminal" is default)
+

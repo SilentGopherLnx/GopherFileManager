@@ -10,30 +10,31 @@ import (
 	"github.com/gotk3/gotk3/gtk"
 )
 
-func GTKMenu_CurrentFolder(menu *gtk.Menu, folderpath string) {
+func GTKMenu_CurrentFolder(menu *gtk.Menu, folderpath LinuxPath) {
 	paste_list, _ := LinuxClipBoard_PasteFiles()
+	fp := folderpath.GetReal()
 	var func_paste func() = nil
 	if len(paste_list) > 0 {
 		func_paste = func() {
-			GTK_CopyPasteDnd_Paste(folderpath)
+			GTK_CopyPasteDnd_Paste(fp)
 		}
 	}
 	GTK_MenuItem(menu, "Paste "+I2S(len(paste_list))+"objects (Ctrl+V)", func_paste)
 	submenu_new := GTK_MenuSub(menu, "New")
 	GTK_MenuItem(submenu_new, "Folder", func() {
-		name_created := FileOrFolder_New(folderpath, true)
-		listFiles(gGFiles, folderpath, false)
-		Dialog_FileRename(win, folderpath, name_created, func() {
-			listFiles(gGFiles, folderpath, false)
+		name_created := FileOrFolder_New(fp, true)
+		listFiles(gGFiles, &folderpath, false)
+		Dialog_FileRename(win, fp, name_created, func() {
+			listFiles(gGFiles, &folderpath, false)
 		})
 	})
 	GTK_MenuSeparator(submenu_new)
 	GTK_MenuItem(submenu_new, "Text File", nil)
 	GTK_MenuItem(submenu_new, "Empty File", func() {
-		name_created := FileOrFolder_New(folderpath, false)
-		listFiles(gGFiles, folderpath, false)
-		Dialog_FileRename(win, folderpath, name_created, func() {
-			listFiles(gGFiles, folderpath, false)
+		name_created := FileOrFolder_New(fp, false)
+		listFiles(gGFiles, &folderpath, false)
+		Dialog_FileRename(win, fp, name_created, func() {
+			listFiles(gGFiles, &folderpath, false)
 		})
 	})
 	GTK_MenuSeparator(menu)
@@ -41,14 +42,14 @@ func GTKMenu_CurrentFolder(menu *gtk.Menu, folderpath string) {
 	GTK_MenuItem(submenu_refolder, "SUDO", nil)
 	GTK_MenuItem(submenu_refolder, "in Terminal", func() {
 		menu.Cancel()
-		term := opt.GetTerminal(folderpath)
+		term := opt.GetTerminal(fp)
 		go ExecCommandBash(term)
 		//a, b, c :=   Prln(a + b + c)
 	})
 	GTK_MenuItem(submenu_refolder, "SUDO in Terminal", nil)
 	GTK_MenuItem(submenu_refolder, "Default File Manager", func() {
 		menu.Cancel()
-		fm := opt.GetFileManager(folderpath)
+		fm := opt.GetFileManager(fp)
 		go ExecCommandBash(fm)
 		//a, b, c :=   Prln(a + b + c)
 	})
@@ -73,7 +74,7 @@ func GTKMenu_CurrentFolder(menu *gtk.Menu, folderpath string) {
 	GTK_MenuItem(submenu_sort, "Size "+B2S(sort_mode == 2, "(v)", ""), nil)
 	GTK_MenuSeparator(menu)
 	GTK_MenuItem(menu, "Info", func() {
-		Dialog_FileInfo(win, LinuxFileGetParent(folderpath), []string{FolderPathEndSlash(LinuxFileNameFromPath(folderpath))})
+		Dialog_FileInfo(win, LinuxFileGetParent(fp), []string{FolderPathEndSlash(LinuxFileNameFromPath(fp))})
 	})
 }
 
@@ -162,7 +163,9 @@ func GTKMenu_File(menu *gtk.Menu, fpath string, fname string, isdir bool, isapp 
 	}
 	GTK_MenuItem(rightmenu, "Rename (F2)", func() {
 		Dialog_FileRename(win, fpath2, fname, func() {
-			listFiles(gGFiles, fpath2, false)
+			lp := NewLinuxPath(true)
+			lp.SetReal(fpath2)
+			listFiles(gGFiles, lp, false)
 		})
 	})
 	if isdir {
@@ -216,6 +219,14 @@ func GTKMenu_Files(menu *gtk.Menu, fpath string, fnames []string, isdir bool, is
 	})
 }
 
+func GTKMenu_FileSearchResult(menu *gtk.Menu) { //}, fpath string, fname string) {
+	// GTK_MenuItem(rightmenu, "Info", func() {
+	// 	Dialog_FileInfo(win, fpath2, fnames)
+	// })
+	GTK_MenuItem(rightmenu, "Go to folder", nil)
+	GTK_MenuItem(rightmenu, "Info", nil)
+}
+
 func GTKMenu_Main(win *gtk.Window) *gtk.MenuBar {
 	menuBar, _ := gtk.MenuBarNew()
 	submenu_file := GTK_MenuSub(menuBar, "Commands")
@@ -234,7 +245,7 @@ func GTKMenu_Main(win *gtk.Window) *gtk.MenuBar {
 	})
 
 	submenu_edit := GTK_MenuSub(menuBar, "Current Folder")
-	GTKMenu_CurrentFolder(submenu_edit, path.GetReal())
+	GTKMenu_CurrentFolder(submenu_edit, *path)
 
 	submenu_other := GTK_MenuSub(menuBar, "Info")
 	GTK_MenuItem(submenu_other, "Help", nil)

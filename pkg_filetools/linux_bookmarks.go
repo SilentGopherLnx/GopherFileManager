@@ -38,7 +38,8 @@ func Linux_DisksGetWithBookmarks(local bool, remote bool, home bool, bookmarks b
 
 	if home {
 		h := &DiskPart{Title: "<HOME>", PartName: login, FSType: "", Protocol: "HOME", SpaceTotal: "", SpaceUsed: "", SpaceFree: "", SpacePercent: 0, Crypted: false, Primary: true, MountPath: FolderLocation_UserHome(), Model: GetPC()}
-		disks = append([]*DiskPart{h}, disks...)
+		net := &DiskPart{Title: "<NET>", PartName: "--", FSType: "", Protocol: "NET", SpaceTotal: "", SpaceUsed: "", SpaceFree: "", SpacePercent: 0, Crypted: false, Primary: true, MountPath: "_smb://", Model: "smb shared folders"}
+		disks = append([]*DiskPart{h, net}, disks...)
 	}
 
 	if bookmarks {

@@ -30,6 +30,33 @@ type LinuxFileReport struct {
 	ModTime     Time
 }
 
+func NewLinuxFileReport(r *FileReport) *LinuxFileReport {
+	f := LinuxFileReport{IsVirtual: false}
+	f.NameOnly = r.NameOnly
+	f.FullName = NewLinuxPath(r.IsDir())
+	f.FullName.SetReal(r.FullName)
+	f.IsRegular = r.IsRegular
+	f.IsDirectory = r.IsDir()
+	f.IsLink = r.IsLink
+	f.SizeBytes = r.Size()
+	f.Mode = r.Mode().String()
+	f.ModTime = Time(r.ModTime())
+	return &f
+}
+
+func (r *LinuxFileReport) FileReport() *FileReport {
+	f := FileReport{}
+	f.Path, _ = FileSplitPathAndName(r.FullName.GetReal())
+	f.NameOnly = r.NameOnly
+	f.FullName = r.FullName.GetReal()
+	f.IsRegular = r.IsRegular
+	f.IsDirectory = r.IsDirectory
+	f.IsLink = r.IsLink
+	f.SizeBytes = r.SizeBytes
+	f.SetModeTime(r.Mode, r.ModTime)
+	return &f
+}
+
 type IFileListAsync interface {
 	CheckUpdatesFinished() ([]*LinuxFileReport, bool, error)
 	Kill()
@@ -128,12 +155,13 @@ func NewFileListAsync_DetectType(path *LinuxPath, search_name string, buffer_siz
 		// 	return NewFileListAsync_Directory(path.GetReal(), buffer, notify_period)
 		// }
 		// return NewFileListAsync_Directory(path.GetReal(), -1, notify_period)
-		if StringFind(url, "file://") == 1 || StringFind(url, "smb://") == 1 {
+		if StringFind(url, "file://") == 1 { //]|| StringFind(url, "smb://") == 1 {
 			return NewFileListAsync_Directory(path.GetReal(), -1, notify_period)
 		} else {
 			return NewFileListAsync_Directory(path.GetReal(), buffer, notify_period)
 		}
 	}
+	return nil
 }
 
 type fileListAsync_ struct {
@@ -150,16 +178,16 @@ func (m *fileListAsync_) checkUpdatesFinished_() ([]*LinuxFileReport, bool, erro
 		if len(m.data) == 0 && m.done == 1 {
 			m.done = 2
 			m.lock.Unlock()
-			return []*LinuxFileReport{}, true, nil
+			return []*LinuxFileReport{}, true, m.err
 		} else {
 			data := m.data
 			m.data = []*LinuxFileReport{}
 			m.lock.Unlock()
-			return data, false, nil
+			return data, false, m.err
 		}
 	} else {
 		m.lock.Unlock()
-		return []*LinuxFileReport{}, true, nil
+		return []*LinuxFileReport{}, true, m.err
 	}
 }
 
@@ -196,18 +224,8 @@ func NewFileListAsync_Directory(path_real string, buffer_size int, notify_period
 					if err1 == nil {
 						for j := 0; j < len(files); j++ {
 							//linestr := files[j].Name() + B2S(files[j].IsDir(), slash, "")
-
-							f := &LinuxFileReport{IsVirtual: false}
-							f.NameOnly = files[j].Name()
-							f.FullName = NewLinuxPath(files[j].IsDir())
-							f.FullName.SetReal(FolderPathEndSlash(path_real) + files[j].Name())
-							f.IsRegular = files[j].Mode().IsRegular()
-							f.IsDirectory = files[j].IsDir()
-							f.IsLink = FileIsLink(files[j])
-							f.SizeBytes = files[j].Size()
-							f.Mode = files[j].Mode().String()
-							f.ModTime = Time(files[j].ModTime())
-
+							fr := NewFileReport(files[j], path_real, false)
+							f := NewLinuxFileReport(&fr)
 							chan_found <- f
 						}
 						if bs == -1 {
@@ -215,12 +233,23 @@ func NewFileListAsync_Directory(path_real string, buffer_size int, notify_period
 							break
 						}
 					} else {
+						m.lock.Lock()
+						m.err = err1
+						m.lock.Unlock()
 						close(chan_found)
 						break
 					}
 				}
 			}
 			f.Close()
+		} else {
+			m.lock.Lock()
+			m.err = err0
+			arr := StringSplit(FilePathEndSlashRemove(path_real), "/")
+			if len(arr) == 6 && arr[1] == "run" && arr[2] == "user" && arr[4] == "gvfs" && StringFind(arr[5], "smb-share:") == 1 { // /run/user/???/gvfs/smb-share:
+				m.err = ErrorWithText("Mounting is not supoerted yet. Use default file-manager.")
+			}
+			m.lock.Unlock()
 		}
 	}()
 	go func() {
@@ -277,17 +306,7 @@ func NewFileListAsync_Searcher(path_real string, search_name string, notify_peri
 				r, ok := <-chan_found
 				m.lock.Lock()
 				if ok {
-					f := &LinuxFileReport{IsVirtual: false}
-					f.NameOnly = r.NameOnly
-					f.FullName = NewLinuxPath(r.IsDir())
-					f.FullName.SetReal(r.FullName)
-					f.IsRegular = r.IsRegular
-					f.IsDirectory = r.IsDir()
-					f.IsLink = r.IsLink
-					f.SizeBytes = r.Size()
-					f.Mode = r.Mode().String()
-					f.ModTime = Time(r.ModTime())
-
+					f := NewLinuxFileReport(r)
 					m.data = append(m.data, f)
 					m.lock.Unlock()
 				} else {
@@ -416,7 +435,6 @@ func NewFileListAsync_NetworkFolders(pc_name string, notify_period float64) *Fil
 			m.err = err
 		}
 		m.lock.Unlock()
-
 	}()
 	return NewFileListAsync(LINUX_SMB+pc_name+"/", notify_period, m)
 }

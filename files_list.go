@@ -27,38 +27,53 @@ type IconUpdateable struct {
 	//oldbuf         bool //have loaded old preview
 	success_preview bool
 	req             int64
-	f               FileReport
+	f               *LinuxFileReport
 }
 
-func listFiles(g *gtk.Grid, lpath string, scroll_reset bool) {
+var async *FileListAsync
 
-	req := req_id.Add(1)
+func listFiles(g *gtk.Grid, lpath *LinuxPath, scroll_reset bool) {
+
+	//GarbageCollection()
 
 	if scroll_reset {
 		GTK_ScrollReset(sRightScroll)
 	}
-
-	fswatcher.Select(lpath)
-
-	new_ind := path_updated.Add(1)
-
 	if with_destroy {
 		for j := 0; j < len(arr_blocks); j++ {
 			arr_blocks[j].Destroy()
 			arr_blocks[j] = nil
 		}
 	}
+	GTK_Childs(g, true, true)
+
+	spinnerFiles.Start()
+
+	//req :=
+	req_id.Add(1)
+	fswatcher.Select(lpath.GetReal())
 
 	arr_blocks = []*FileIconBlock{}
 
-	//GarbageCollection()
+	//lpath2 := FolderPathEndSlash(lpath)
+	//Prln("=========" + lpath2)
 
-	GTK_Childs(g, true, true)
+	if async != nil {
+		async.ForceKill()
+	}
+	search, _ := gInpSearch.GetText()
+	async = NewFileListAsync_DetectType(path, StringTrim(search), 5, 0.2)
+	if async == nil {
+		Prln("!!! async=nil")
+		iconwithlabel := NewFileIconBlock(lpath.GetReal(), "ERROR!", 400, false, false, false, false, "???", ZOOM_SIZE)
+		arr_blocks = append(arr_blocks, iconwithlabel)
+		g.Attach(iconwithlabel.GetWidgetMain(), 1, 1, 1, 1)
+		g.ShowAll()
+		return
+	}
+}
 
-	GarbageCollection()
-
-	lpath2 := FolderPathEndSlash(lpath)
-	Prln("=========" + lpath2)
+func AddFilesToList(g *gtk.Grid, files []*LinuxFileReport, lpath2 string, req int64) {
 
 	single_thread_protocol := false
 	with_extra_info := true
@@ -75,28 +90,18 @@ func listFiles(g *gtk.Grid, lpath string, scroll_reset bool) {
 		with_extra_info = false
 	}
 
-	files, err := Folder_ListFiles(lpath2, false) //// !!!!!!!!!!!!!!!!!!!!!!! true!
-	if err != nil {
-		Prln(err.Error())
-		iconwithlabel := NewFileIconBlock(lpath2, "ERROR!", 400, false, false, false, false, err.Error(), ZOOM_SIZE)
-		arr_blocks = append(arr_blocks, iconwithlabel)
-		g.Attach(iconwithlabel.GetWidgetMain(), 1, 1, 1, 1)
-		g.ShowAll()
-		return
-	}
-	j := 0
-
 	var arr_render []*IconUpdateable
 	_, icon_block_max_w := max_icon_n_w() // icon_block_max_n,icon_block_max_w
 
 	folder_mask := GetIcon_ImageFolder(ZOOM_SIZE)
 
 	for _, f := range files {
-		fname := f.Name()
-		isdir := f.IsDir()
+		diff := FolderPathDiff(lpath2, f.FullName.GetReal())
+		fname := diff + f.NameOnly
+		isdir := f.IsDirectory
 		isapp := false
-		islink := FileIsLink(f)
-		isregular := f.Mode().IsRegular() || islink
+		islink := f.IsLink
+		isregular := f.IsRegular || islink
 		//oldbuf := false
 
 		if islink {
@@ -125,10 +130,10 @@ func listFiles(g *gtk.Grid, lpath string, scroll_reset bool) {
 				}
 			}
 		} else {
-			inf = inf + FileSizeNiceString(f.Size()) //F2S(float64(f.Size())/float64(BytesInMb), 1) + "Mb"
+			inf = inf + FileSizeNiceString(f.SizeBytes) //F2S(float64(f.Size())/float64(BytesInMb), 1) + "Mb"
 		}
 
-		ismount := LinuxFolderIsMountPoint(mountlist, lpath2+fname)
+		ismount := LinuxFolderIsMountPoint(mountlist, lpath2+fname) || SMB_IsMount(path, fname, mountlist)
 		iconwithlabel := NewFileIconBlock(lpath2, fname, icon_block_max_w, isdir, islink, not_read, ismount, inf, ZOOM_SIZE)
 
 		if isdir {
@@ -153,7 +158,7 @@ func listFiles(g *gtk.Grid, lpath string, scroll_reset bool) {
 			} else {
 				pixbuf_icon = GetIcon_PixBif(ZOOM_SIZE, tfile, false)
 			}
-			if f.Size() == 0 {
+			if f.SizeBytes == 0 {
 				if isregular {
 					pixbuf_icon = GetIcon_PixBif_OF(ZOOM_SIZE, PREFIX_DRAWONME+FILE_TYPE_ZERO)
 				} else {
@@ -195,15 +200,17 @@ func listFiles(g *gtk.Grid, lpath string, scroll_reset bool) {
 					clicktime = TimeAddMS(clicktime, -2000)
 					if isdir {
 						//path, _ = gInpPath.GetText()
-						path.SetReal(path.GetReal() + txtlbl)
-						if opt.GetSymlinkEval() {
+						//path.SetReal(path.GetReal() + txtlbl)
+						path.GoDeeper(txtlbl)
+						if opt.GetSymlinkEval() && !path.GetParseProblems() {
 							r2, err := FileEvalSymlinks(path.GetReal())
 							if err == nil {
 								path.SetReal(r2)
 							}
 						}
 						gInpPath.SetText(path.GetVisual())
-						listFiles(gGFiles, path.GetReal(), true)
+						gInpSearch.SetText("")
+						listFiles(gGFiles, path, true)
 					} else {
 						OpenFileByApp(path.GetReal()+txtlbl, "")
 					}
@@ -233,10 +240,14 @@ func listFiles(g *gtk.Grid, lpath string, scroll_reset bool) {
 					FilesSelector_ResetChecks()
 					sel_list = []string{}
 				}
-				if len(sel_list) <= 1 {
-					GTKMenu_File(rightmenu, lpath2, fname, isdir, isapp)
+				if diff == "" {
+					if len(sel_list) <= 1 {
+						GTKMenu_File(rightmenu, lpath2, fname, isdir, isapp)
+					} else {
+						GTKMenu_Files(rightmenu, lpath2, sel_list, isdir, isapp)
+					}
 				} else {
-					GTKMenu_Files(rightmenu, lpath2, sel_list, isdir, isapp)
+					GTKMenu_FileSearchResult(rightmenu) //, lpath2+diff, f.NameOnly)
 				}
 
 				rightmenu.ShowAll()
@@ -245,7 +256,6 @@ func listFiles(g *gtk.Grid, lpath string, scroll_reset bool) {
 		})
 
 		arr_blocks = append(arr_blocks, iconwithlabel)
-		j++
 
 		if isdir {
 			fullname := FolderPathEndSlash(path.GetReal() + fname)
@@ -290,14 +300,14 @@ func listFiles(g *gtk.Grid, lpath string, scroll_reset bool) {
 			for j := 0; j < len(arr_render); j++ {
 				if arr_render[j].folder {
 					if FolderPathEndSlash(arr_render[j].fullname) != opt.GetHashFolder() {
-						arr_render[j].pixbuf_cache = CachePreview_ReadPixbuf(arr_render[j].f, ZOOM_SIZE, folder_mask)
+						arr_render[j].pixbuf_cache = CachePreview_ReadPixbuf(arr_render[j].f.FileReport(), ZOOM_SIZE, folder_mask)
 						if arr_render[j].pixbuf_cache != nil {
 							qu.Append(arr_render[j])
 						}
 					}
 				} else {
 					if path.GetReal() != opt.GetHashFolder() {
-						arr_render[j].pixbuf_cache = CachePreview_ReadPixbuf(arr_render[j].f, ZOOM_SIZE, nil)
+						arr_render[j].pixbuf_cache = CachePreview_ReadPixbuf(arr_render[j].f.FileReport(), ZOOM_SIZE, nil)
 						if arr_render[j].pixbuf_cache != nil {
 							qu.Append(arr_render[j])
 						}
@@ -322,7 +332,7 @@ func listFiles(g *gtk.Grid, lpath string, scroll_reset bool) {
 			return false
 		})
 		for j := 0; j < len(arr_render); j++ {
-			if new_ind == path_updated.Get() {
+			if req == req_id.Get() {
 				arr_render[j].req = req
 				if single_thread_protocol {
 					icon_chan1 <- arr_render[j]
@@ -395,4 +405,16 @@ func max_icon_n_w() (int, int) {
 	icon_block_max_w = real_w/icon_block_max_n - BORDER_SIZE*3
 	//Prln("size" + I2S(ww))
 	return icon_block_max_n, icon_block_max_w
+}
+
+func FolderPathDiff(origpath string, fullname string) string {
+	orarr := StringSplit(FilePathEndSlashRemove(origpath), "/")
+	len1 := len(orarr)
+	farr := StringSplit(FilePathEndSlashRemove(fullname), "/")
+	len2 := len(farr) - 1
+	if len2 > len1 {
+		//Prln("??" + origpath + " >> " + fullname)
+		return FolderPathEndSlash(StringJoin(farr[len1:len2], "/"))
+	}
+	return ""
 }
