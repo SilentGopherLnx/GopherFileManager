@@ -67,9 +67,9 @@ App is under development and not versionized (you can see version if run with on
 - ~~**async file list loading** by os.File.Readdir(1+) (ioutil.ReadDir() or os.File.Readdir(-1) is slow if mpt/webdav protocol)~~
 - ~~**listing all remote pc on network, list folders of one remote pc**~~
 - ~~**searching files** results~~
-- **mounting remote folders** & **mounting local (unmounted or encrypted) folders**
+- ~~mounting remote folders~~ & mounting remote folders with unsaved password & **mounting local (unmounted or encrypted) folders**
 2) easy (so, it will be done later):
-- history of location ("back button" fo path)
+- ~~history of location ("back button" fo path)~~
 - some small features like ~~sorting~~, favorite folders editing
 - hash folder automatic clear for too old preview-images
 - list style show of file list
@@ -86,6 +86,7 @@ App is under development and not versionized (you can see version if run with on
 - 0.2.1 - hotkeys F2,F5,Ctrl+A; info for multiseleced files; copy folder near itself
 - 0.2.2 - new cache method, exif orientation, paste into in menu, russian keyboard shortcuts fix
 - **0.3.0** - async file list loading! searching files! network listing! movie files length on icon
+- **0.3.1** - smb mount, path history, search results menus
 
 # Platform & License:
 **Only Linux!** Tested mostly on amd64 on Cinnamon desktop (Linux Mint 19).
