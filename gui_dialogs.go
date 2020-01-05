@@ -36,7 +36,9 @@ func Dialog_FileRename(w *gtk.Window, fpath string, fname_old string, upd func()
 			ok, errtxt := FileRename(fpath2+fname_prev, fpath2+safe_name)
 			if ok {
 				dial.Close()
-				upd()
+				if upd != nil {
+					upd()
+				}
 			} else {
 				lbl_err.SetText("Error: " + errtxt)
 			}
@@ -203,6 +205,39 @@ func Dialog_FolderError(w *gtk.Window, err error, path_visual string) {
 
 	box.SetOrientation(gtk.ORIENTATION_VERTICAL)
 	box.Add(lbl_err)
+
+	dial.SetResizable(false)
+	dial.ShowAll()
+	dial.Run()
+	dial.Close()
+}
+
+func Dialog_Mount(w *gtk.Window, pc_name string, folder_name string, mount bool) {
+	if !mount {
+		go func() {
+			err := SMB_UnMount(pc_name, folder_name)
+			if err != nil {
+				Prln(err.Error())
+			}
+			fswatcher.EmulateUpdate()
+		}()
+		return
+	}
+
+	go func() {
+		_, err := SMB_MountLoginAsk(pc_name, folder_name)
+		if err != nil {
+			Prln(err.Error())
+		}
+		fswatcher.EmulateUpdate()
+	}()
+
+	dial, box := GTK_Dialog(w, "Mounting")
+
+	lbl, _ := gtk.LabelNew(StringFill("Wait some time and close this window.\nUse default file manager if you have password and it's not saved in system", 20))
+
+	box.SetOrientation(gtk.ORIENTATION_VERTICAL)
+	box.Add(lbl)
 
 	dial.SetResizable(false)
 	dial.ShowAll()

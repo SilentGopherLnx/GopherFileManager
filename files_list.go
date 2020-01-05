@@ -30,11 +30,29 @@ type IconUpdateable struct {
 	f               *LinuxFileReport
 }
 
+var arr_blocks []*FileIconBlock = []*FileIconBlock{}
+var real_files_count = 0
+var icon_chanN chan *IconUpdateable
+var icon_chan1 chan *IconUpdateable
+
 var async *FileListAsync
 
-func listFiles(g *gtk.Grid, lpath *LinuxPath, scroll_reset bool) {
+func listFiles(g *gtk.Grid, lpath *LinuxPath, scroll_reset bool, save_history bool) {
 
 	//GarbageCollection()
+
+	search, _ := gInpSearch.GetText()
+	if save_history {
+		hist.SaveNew(lpath.GetVisual(), search)
+	}
+
+	upd_title()
+
+	url := lpath.GetUrl()
+	is_smb, pc_name, netfolder := SMB_CheckVirtualPath(url)
+	if is_smb || (StringLength(pc_name) > 0 && StringLength(netfolder) == 0) {
+		listDiscs(gGDiscs)
+	}
 
 	if scroll_reset {
 		GTK_ScrollReset(sRightScroll)
@@ -58,10 +76,13 @@ func listFiles(g *gtk.Grid, lpath *LinuxPath, scroll_reset bool) {
 	//lpath2 := FolderPathEndSlash(lpath)
 	//Prln("=========" + lpath2)
 
+	real_files_count = 0
+
+	rwlock.W_Lock()
+
 	if async != nil {
 		async.ForceKill()
 	}
-	search, _ := gInpSearch.GetText()
 	async = NewFileListAsync_DetectType(path, StringTrim(search), 5, 0.2)
 	if async == nil {
 		Prln("!!! async=nil")
@@ -74,6 +95,12 @@ func listFiles(g *gtk.Grid, lpath *LinuxPath, scroll_reset bool) {
 }
 
 func AddFilesToList(g *gtk.Grid, files []*LinuxFileReport, lpath2 string, req int64) {
+
+	n_now := len(arr_blocks)
+	n_max := opt.GetFolderLimit()
+	real_files_count += len(files)
+
+	Prln("adding to view " + I2S(len(files)) + " objects")
 
 	single_thread_protocol := false
 	with_extra_info := true
@@ -96,8 +123,14 @@ func AddFilesToList(g *gtk.Grid, files []*LinuxFileReport, lpath2 string, req in
 	folder_mask := GetIcon_ImageFolder(ZOOM_SIZE)
 
 	for _, f := range files {
+		n_now += 1
+		if n_now > n_max {
+			n_now -= 1
+			break
+		}
 		diff := FolderPathDiff(lpath2, f.FullName.GetReal())
 		fname := diff + f.NameOnly
+		fname_only := f.NameOnly
 		isdir := f.IsDirectory
 		isapp := false
 		islink := f.IsLink
@@ -188,7 +221,11 @@ func AddFilesToList(g *gtk.Grid, files []*LinuxFileReport, lpath2 string, req in
 		GTK_CopyPasteDnd_SetIconSource(iconwithlabel.GetWidgetMain(), iconwithlabel.GetIcon(), getter)
 
 		clicktime := TimeAddMS(TimeNow(), -2000)
+		iconwithlabel.ConnectEventBox("button-press-event", func(_ *gtk.EventBox, event *gdk.Event) {
+			disable_focus()
+		})
 		iconwithlabel.ConnectEventBox("button-release-event", func(_ *gtk.EventBox, event *gdk.Event) {
+			//disable_focus()
 			mousekey, X, Y := GTK_MouseKeyOfEvent(event)
 			switch mousekey {
 			case 1:
@@ -210,7 +247,7 @@ func AddFilesToList(g *gtk.Grid, files []*LinuxFileReport, lpath2 string, req in
 						}
 						gInpPath.SetText(path.GetVisual())
 						gInpSearch.SetText("")
-						listFiles(gGFiles, path, true)
+						listFiles(gGFiles, path, true, true)
 					} else {
 						OpenFileByApp(path.GetReal()+txtlbl, "")
 					}
@@ -241,13 +278,23 @@ func AddFilesToList(g *gtk.Grid, files []*LinuxFileReport, lpath2 string, req in
 					sel_list = []string{}
 				}
 				if diff == "" {
-					if len(sel_list) <= 1 {
-						GTKMenu_File(rightmenu, lpath2, fname, isdir, isapp)
+					url := path.GetUrl()
+					is_smb, pc_name, netfolder := SMB_CheckVirtualPath(url)
+					if is_smb || (StringLength(pc_name) > 0 && StringLength(netfolder) == 0) {
+						GTKMenu_SMB(rightmenu, pc_name, fname, ismount)
 					} else {
-						GTKMenu_Files(rightmenu, lpath2, sel_list, isdir, isapp)
+						if len(sel_list) <= 1 {
+							GTKMenu_File(rightmenu, lpath2, fname, isdir, isapp)
+						} else {
+							GTKMenu_Files(rightmenu, lpath2, sel_list, isdir, isapp)
+						}
 					}
 				} else {
-					GTKMenu_FileSearchResult(rightmenu) //, lpath2+diff, f.NameOnly)
+					if len(sel_list) <= 1 {
+						GTKMenu_FileSearchResult(rightmenu, isdir, lpath2+diff, fname_only)
+					} else {
+						GTKMenu_FileSearchResult_Multiple(rightmenu, isdir, lpath2, sel_list)
+					}
 				}
 
 				rightmenu.ShowAll()
@@ -331,6 +378,7 @@ func AddFilesToList(g *gtk.Grid, files []*LinuxFileReport, lpath2 string, req in
 			}
 			return false
 		})
+		rwlock.R_Lock()
 		for j := 0; j < len(arr_render); j++ {
 			if req == req_id.Get() {
 				arr_render[j].req = req
@@ -342,7 +390,7 @@ func AddFilesToList(g *gtk.Grid, files []*LinuxFileReport, lpath2 string, req in
 			}
 			RuntimeGosched()
 		}
-
+		rwlock.R_Unlock()
 		//Prln("GO FINISH")
 	}()
 
@@ -417,4 +465,66 @@ func FolderPathDiff(origpath string, fullname string) string {
 		return FolderPathEndSlash(StringJoin(farr[len1:len2], "/"))
 	}
 	return ""
+}
+
+type PathHistory struct {
+	pathes   []string
+	searches []string
+	ind      int
+}
+
+func PathHistoryNew() *PathHistory {
+	h := PathHistory{pathes: []string{}, searches: []string{}, ind: 0}
+	return &h
+}
+
+func (h *PathHistory) SaveNew(path_visual string, search string) {
+	if h.ind > 0 {
+		h.pathes = h.pathes[0:h.ind]
+		h.searches = h.searches[0:h.ind]
+	} else {
+		h.pathes = []string{}
+		h.searches = []string{}
+	}
+
+	L := len(h.pathes)
+	if L > 0 && h.pathes[L-1] == path_visual && h.searches[L-1] == search {
+		return
+	}
+
+	h.pathes = append(h.pathes, path_visual)
+	h.searches = append(h.searches, search)
+
+	h.ind++
+}
+
+func (h *PathHistory) Back() (bool, string, string) {
+	if h.ind > 1 {
+		h.ind--
+		return true, h.pathes[h.ind-1], h.searches[h.ind-1]
+	} else {
+		return false, "", ""
+	}
+}
+
+func (h *PathHistory) Forward() (bool, string, string) {
+	if h.ind < len(h.pathes) {
+		h.ind++
+		return true, h.pathes[h.ind-1], h.searches[h.ind-1]
+	} else {
+		return false, "", ""
+	}
+}
+
+func (h *PathHistory) CanBackForward() (bool, bool) {
+	return h.ind > 1, h.ind < len(h.pathes)
+}
+
+func (h *PathHistory) GetList() (int, []string, []string) {
+	return h.ind, h.pathes, h.searches
+}
+
+func (h *PathHistory) GoAt(id int) (bool, string, string) {
+	//TODO
+	return false, "", ""
 }

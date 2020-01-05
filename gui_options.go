@@ -31,6 +31,7 @@ const OPTIONS_VIDEO_PREVIEW_PERCENT = "video_preview_percent"
 const OPTIONS_INOTIFY_PERIOD = "inotify_period"
 const OPTIONS_SYMLINKS_EVAL = "symlinks_eval"
 const OPTIONS_EXIF_ROTATION = "exif_rotation"
+const OPTIONS_FOLDER_LIMIT = "folder_limit"
 
 func init() {
 	InitOptions()
@@ -63,6 +64,8 @@ func InitOptions() {
 	opt.st.AddRecord_Integer(501, OPTIONS_FFMPEG_TIMEOUT, 6, 2, 10, "FFmpeg max time wait before kill it")
 	opt.st.AddRecord_Integer(502, OPTIONS_INOTIFY_PERIOD, 2, 1, 5, "Process \"inotify\" minimum period of directory content change reaction")
 	opt.st.AddRecord_Integer(503, OPTIONS_VIDEO_PREVIEW_PERCENT, 50, 1, 99, "Percent of video duration for preview frame")
+
+	opt.st.AddRecord_Integer(504, OPTIONS_FOLDER_LIMIT, 10, 2, 50, "maximum files per folder (or search results) for display x100")
 
 	opt.st.AddRecord_Boolean(601, OPTIONS_SYMLINKS_EVAL, true, "Open symlinks as real path to folder")
 	opt.st.AddRecord_Boolean(602, OPTIONS_EXIF_ROTATION, true, "Use EXIF orientation tag for JPEG images")
@@ -133,6 +136,10 @@ func (o *OptionsContainer) GetSymlinkEval() bool {
 
 func (o *OptionsContainer) GetExifRot() bool {
 	return o.st.ValueGetBoolean(OPTIONS_EXIF_ROTATION)
+}
+
+func (o *OptionsContainer) GetFolderLimit() int {
+	return o.st.ValueGetInteger(OPTIONS_FOLDER_LIMIT) * 100
 }
 
 func Dialog_Options(w *gtk.Window) {

@@ -42,7 +42,9 @@ var gInpPath, gInpSearch *gtk.Entry
 var gBtnUp *gtk.Button
 var gBtnRefresh *gtk.Button
 var mem, space *gtk.Label
+
 var gBtnBack, gBtnForward *gtk.Button
+var hist *PathHistory = PathHistoryNew()
 
 var path *LinuxPath = NewLinuxPath(true)
 
@@ -54,10 +56,6 @@ var icon_block_max_n_old, icon_block_max_w_old int
 var ZOOM_SIZE = 64
 
 var LEFT_PANEL_SIZE = 200 //200
-
-var arr_blocks []*FileIconBlock = []*FileIconBlock{}
-var icon_chanN chan *IconUpdateable
-var icon_chan1 chan *IconUpdateable
 
 var qu *SyncQueue
 
@@ -75,7 +73,7 @@ var rightmenu *gtk.Menu = nil
 
 var main_iterations_funcs *FuncArr = NewFuncArr()
 
-var mountlist [][2]string
+var mountlist [][2]string = [][2]string{}
 
 var fswatcher *FSWatcher
 
@@ -83,6 +81,8 @@ var num_works *AInt = NewAtomicInt(0)
 
 var sort_reverse bool = false
 var sort_mode int = 0
+
+var sudo string = ""
 
 var upd_func func()
 
@@ -132,8 +132,8 @@ func main() {
 	GTK_ColorsLoad(win)
 
 	uid, _, _ := GetPC_UserUidLoginName()
-	sudo := B2S(LinuxRoot_Check() == 1, "[root"+uid+"] ", "")
-	win.SetTitle(sudo + "GopherFileManager")
+	sudo = B2S(LinuxRoot_Check() == 1, "[root"+uid+"] ", "-")
+	upd_title()
 	win.SetDefaultSize(1200, 800)
 	win.SetPosition(gtk.WIN_POS_CENTER)
 
@@ -184,14 +184,14 @@ func main() {
 		path.GoUp()
 		gInpPath.SetText(path.GetVisual())
 		gInpSearch.SetText("")
-		listFiles(gGFiles, path, true)
+		listFiles(gGFiles, path, true, true)
 	})
 	gBtnUp.SetCanFocus(false)
 
 	upd_func = func() {
 		tpath, _ := gInpPath.GetText()
 		path.SetVisual(tpath)
-		listFiles(gGFiles, path, true)
+		listFiles(gGFiles, path, true, true)
 	}
 
 	gBtnBack, _ = gtk.ButtonNewWithLabel("Back")
@@ -199,7 +199,13 @@ func main() {
 	gBtnBack.SetImage(img_bk)
 	gBtnBack.SetProperty("always-show-image", true)
 	gBtnBack.Connect("clicked", func() {
-
+		ok, v, s := hist.Back()
+		if ok {
+			path.SetVisual(v)
+			gInpPath.SetText(v)
+			gInpSearch.SetText(s)
+			listFiles(gGFiles, path, true, false)
+		}
 	})
 	gBtnBack.SetCanFocus(false)
 
@@ -208,11 +214,17 @@ func main() {
 	gBtnForward.SetImage(img_fw)
 	gBtnForward.SetProperty("always-show-image", true)
 	gBtnForward.Connect("clicked", func() {
-
+		ok, v, s := hist.Forward()
+		if ok {
+			path.SetVisual(v)
+			gInpPath.SetText(v)
+			gInpSearch.SetText(s)
+			listFiles(gGFiles, path, true, false)
+		}
 	})
 	gBtnForward.SetCanFocus(false)
 
-	gBtnRefresh, _ = gtk.ButtonNewWithLabel("Reload")
+	gBtnRefresh, _ = gtk.ButtonNewWithLabel("Reload/Search")
 	//img2 := GTK_Image_From_File(appdir+"gui/button_reload.png", "png")
 	img2 := GTK_Image_From_Name("view-refresh", gtk.ICON_SIZE_BUTTON)
 	gBtnRefresh.SetImage(img2)
@@ -224,8 +236,8 @@ func main() {
 
 	gGTop1, _ := gtk.GridNew()
 	gGTop1.SetOrientation(gtk.ORIENTATION_HORIZONTAL)
-	//gGTop1.Attach(gBtnBack, 0, 0, 1, 1)
-	//gGTop1.Attach(gBtnForward, 1, 0, 1, 1)
+	gGTop1.Attach(gBtnBack, 0, 0, 1, 1)
+	gGTop1.Attach(gBtnForward, 1, 0, 1, 1)
 	gGTop1.Attach(gBtnUp, 2, 0, 1, 1)
 	//gGTop1.Attach(gInpPath, 3, 0, 1, 1)
 
@@ -295,8 +307,7 @@ func main() {
 		FilesSelector_Draw(dy, ctx)
 	})
 	rightEv.Connect("button-press-event", func(_ *gtk.EventBox, event *gdk.Event) {
-		gInpPath.SetCanFocus(false)
-		gInpSearch.SetCanFocus(false)
+		disable_focus()
 		mousekey, _, _, zone := FilesSelector_MousePressed(event, sRightScroll)
 		if mousekey == 3 && zone {
 			if rightmenu == nil || !rightmenu.IsVisible() {
@@ -355,7 +366,7 @@ func main() {
 	rezoom := func() {
 		GTK_Childs(gGFiles, true, true)
 		//path, _ = gInpPath.GetText()
-		listFiles(gGFiles, path, true)
+		listFiles(gGFiles, path, true, false)
 		resize_event_no_repeats()
 	}
 
@@ -415,7 +426,7 @@ func main() {
 	gCheckPreviewCache.Connect("clicked", func() {
 		with_cache_preview = gCheckPreviewCache.GetActive()
 		if with_cache_preview {
-			listFiles(gGFiles, path, true)
+			listFiles(gGFiles, path, true, false)
 		}
 	})
 
@@ -424,7 +435,7 @@ func main() {
 	gCheckPreviewFolders.Connect("clicked", func() {
 		with_folders_preview = gCheckPreviewFolders.GetActive()
 		if with_folders_preview {
-			listFiles(gGFiles, path, true)
+			listFiles(gGFiles, path, true, false)
 		}
 	})
 	gCheckPreviewFiles, _ := gtk.CheckButtonNewWithLabel("preview files")
@@ -432,7 +443,7 @@ func main() {
 	gCheckPreviewFiles.Connect("clicked", func() {
 		with_files_preview = gCheckPreviewFiles.GetActive()
 		if with_files_preview {
-			listFiles(gGFiles, path, true)
+			listFiles(gGFiles, path, true, false)
 		}
 	})
 
@@ -494,7 +505,7 @@ func main() {
 	}
 
 	listDiscs(gGDiscs)
-	listFiles(gGFiles, path, true)
+	listFiles(gGFiles, path, true, true)
 
 	pid := AppProcessID()
 	Prln("PID:" + I2S(pid))
@@ -506,4 +517,31 @@ func main() {
 	Thread_Main()
 	//gtk.Main()
 
+}
+
+func disable_focus() {
+	gInpPath.SetCanFocus(false)
+	gInpSearch.SetCanFocus(false)
+	sRightScroll.GrabFocus()
+}
+
+func upd_title() {
+	folder_name := path.GetLastNode()
+	url := path.GetUrl()
+	is_smb, pc_name, netfolder := SMB_CheckVirtualPath(url)
+	if is_smb {
+		folder_name = "SMB://"
+	}
+	if StringLength(netfolder) > 0 {
+		folder_name = netfolder
+	} else {
+		if StringLength(pc_name) > 0 {
+			folder_name = pc_name
+		}
+	}
+	win.SetTitle(folder_name + " " + sudo + " GopherFileManager")
+}
+
+func OpenManager(path_to_folder string) {
+	go ExecCommandBash("" + ExecQuote(AppRunArgs()[0]) + " " + ExecQuote(FolderPathEndSlash(path_to_folder)) + B2S(win.IsMaximized(), " -max", ""))
 }

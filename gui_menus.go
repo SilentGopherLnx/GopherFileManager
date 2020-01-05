@@ -23,18 +23,18 @@ func GTKMenu_CurrentFolder(menu *gtk.Menu, folderpath LinuxPath) {
 	submenu_new := GTK_MenuSub(menu, "New")
 	GTK_MenuItem(submenu_new, "Folder", func() {
 		name_created := FileOrFolder_New(fp, true)
-		listFiles(gGFiles, &folderpath, false)
+		//listFiles(gGFiles, &folderpath, false)
 		Dialog_FileRename(win, fp, name_created, func() {
-			listFiles(gGFiles, &folderpath, false)
+			//listFiles(gGFiles, &folderpath, false)
 		})
 	})
 	GTK_MenuSeparator(submenu_new)
 	GTK_MenuItem(submenu_new, "Text File", nil)
 	GTK_MenuItem(submenu_new, "Empty File", func() {
 		name_created := FileOrFolder_New(fp, false)
-		listFiles(gGFiles, &folderpath, false)
+		//listFiles(gGFiles, &folderpath, false)
 		Dialog_FileRename(win, fp, name_created, func() {
-			listFiles(gGFiles, &folderpath, false)
+			//listFiles(gGFiles, &folderpath, false)
 		})
 	})
 	GTK_MenuSeparator(menu)
@@ -87,7 +87,7 @@ func GTKMenu_File(menu *gtk.Menu, fpath string, fname string, isdir bool, isapp 
 	if isdir {
 		GTK_MenuItem(rightmenu, "Open in new Window", func() {
 			menu.Cancel()
-			go ExecCommandBash("" + ExecQuote(AppRunArgs()[0]) + " " + ExecQuote(fpath2+fname) + B2S(win.IsMaximized(), " -max", ""))
+			OpenManager(fpath2 + fname)
 		})
 		//if(islink){
 		GTK_MenuItem(rightmenu, "Open with eval symlink", nil)
@@ -165,7 +165,7 @@ func GTKMenu_File(menu *gtk.Menu, fpath string, fname string, isdir bool, isapp 
 		Dialog_FileRename(win, fpath2, fname, func() {
 			lp := NewLinuxPath(true)
 			lp.SetReal(fpath2)
-			listFiles(gGFiles, lp, false)
+			//listFiles(gGFiles, lp, false)
 		})
 	})
 	if isdir {
@@ -219,12 +219,53 @@ func GTKMenu_Files(menu *gtk.Menu, fpath string, fnames []string, isdir bool, is
 	})
 }
 
-func GTKMenu_FileSearchResult(menu *gtk.Menu) { //}, fpath string, fname string) {
-	// GTK_MenuItem(rightmenu, "Info", func() {
-	// 	Dialog_FileInfo(win, fpath2, fnames)
-	// })
+func GTKMenu_FileSearchResult(menu *gtk.Menu, isdir bool, fpath string, fname string) {
 	GTK_MenuItem(rightmenu, "Go to folder", nil)
-	GTK_MenuItem(rightmenu, "Info", nil)
+	if isdir {
+		GTK_MenuItem(rightmenu, "Open in new Window", func() {
+			menu.Cancel()
+			fpath2 := FolderPathEndSlash(fpath)
+			OpenManager(fpath2 + fname)
+		})
+	} else {
+		GTK_MenuItem(rightmenu, "Open folder of file in new Window", func() {
+			menu.Cancel()
+			fpath2 := FolderPathEndSlash(fpath)
+			OpenManager(fpath2)
+		})
+	}
+	GTK_MenuItem(rightmenu, "Info", func() {
+		Dialog_FileInfo(win, FolderPathEndSlash(fpath), []string{fname})
+	})
+	//GTK_MenuItem(rightmenu, "Info", nil)
+}
+
+func GTKMenu_FileSearchResult_Multiple(menu *gtk.Menu, isdir bool, fpath string, fnames []string) {
+	GTK_MenuItem(rightmenu, "Info", func() {
+		Dialog_FileInfo(win, FolderPathEndSlash(fpath), fnames)
+	})
+	//GTK_MenuItem(rightmenu, "Info", nil)
+}
+
+func GTKMenu_SMB(menu *gtk.Menu, pc_name string, folder_name string, mounted bool) {
+	if StringLength(pc_name) == 0 {
+		GTK_MenuItem(rightmenu, "Login as user...", nil)
+	} else {
+		var f_mount func() = nil
+		var f_unmount func() = nil
+		if !mounted {
+			f_mount = func() {
+				Dialog_Mount(win, pc_name, folder_name, true)
+			}
+		} else {
+			f_unmount = func() {
+				Dialog_Mount(win, pc_name, folder_name, false)
+			}
+		}
+		GTK_MenuItem(rightmenu, "Mount", f_mount)
+		GTK_MenuItem(rightmenu, "Unmount", f_unmount)
+	}
+	//GTK_MenuSeparator(rightmenu)
 }
 
 func GTKMenu_Main(win *gtk.Window) *gtk.MenuBar {

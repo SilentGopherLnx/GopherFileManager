@@ -11,6 +11,8 @@ import (
 	//	"github.com/gotk3/gotk3/gdk"
 )
 
+var rwlock *SyncMutexRW_OneWriterProtected = NewSyncMutexRW_OneWriterProtected()
+
 func Thread_Main() {
 	iter := 0
 	gtk.MainIteration()
@@ -29,11 +31,12 @@ func Thread_Main() {
 					Dialog_FolderError(win, err, path.GetVisual())
 				}
 				async = nil
+				rwlock.W_Unlock()
 			}
 		}
 
 		if fswatcher.IsUpdated() {
-			listFiles(gGFiles, path, false)
+			listFiles(gGFiles, path, false, false)
 		}
 		gtk.MainIteration()
 		qlen := qu.Length()
@@ -64,7 +67,7 @@ func Thread_Main() {
 		}
 		//if iter > 10 {
 		//	iter = 0
-		mem.SetText(I2S(num_works.Get()) + " processes; RAM Usage: " + F2S(GetPC_MemoryUsageMb(), 1) + " Mb & " + usage)
+		mem.SetText(I2S(num_works.Get()) + " processes; RAM Usage: " + F2S(GetPC_MemoryUsageMb(), 1) + " Mb & " + usage + "; displayed:" + I2S(len(arr_blocks)) + "/" + I2S(real_files_count) + " objects")
 		main_iterations_funcs.ExecAll()
 
 		if num_works.Get() == 0 {
@@ -76,6 +79,10 @@ func Thread_Main() {
 				spinnerIcons.Start()
 			}
 		}
+
+		cb, cf := hist.CanBackForward()
+		gBtnBack.SetSensitive(cb)
+		gBtnForward.SetSensitive(cf)
 
 		//}
 		//RuntimeGosched()

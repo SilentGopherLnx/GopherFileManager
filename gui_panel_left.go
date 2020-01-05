@@ -37,7 +37,7 @@ func listDiscs(g *gtk.Box) {
 			}
 			gInpPath.SetText(path.GetVisual())
 			gInpSearch.SetText("")
-			listFiles(gGFiles, path, true)
+			listFiles(gGFiles, path, true, true)
 		})
 		gDBtn.SetHExpand(false)
 

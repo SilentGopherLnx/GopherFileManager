@@ -55,7 +55,7 @@ func FilesSelector_MousePressed(event *gdk.Event, scroll *gtk.ScrolledWindow) (i
 		select_x2 = 0
 		select_y2 = 0
 		Prln("select mouse1_down " + I2S(x1) + "/" + I2S(y1+dy))
-		scroll.GrabFocus()
+		//scroll.GrabFocus()
 	}
 	return mousekey, x1, y1, zone
 }

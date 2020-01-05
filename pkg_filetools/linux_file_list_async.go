@@ -11,7 +11,8 @@ import (
 )
 
 const CHAN_BUFFER_SIZE = 100
-const LINUX_SMB = "smb://"
+
+const LINUX_SMB = SMB_SLASH2 //"smb://"
 const LINUX_DISKS = "pc://"
 
 func init() {
@@ -123,8 +124,8 @@ func (w *FileListAsync) AllData() ([]*LinuxFileReport, error) {
 func NewFileListAsync_DetectType(path *LinuxPath, search_name string, buffer_size int, notify_period float64) *FileListAsync {
 	buffer := MAXI(1, buffer_size)
 	url := path.GetUrl()
-	len_smb := StringLength(LINUX_SMB)
-	if url == LINUX_SMB {
+	is_smb, pc_name, netfolder := SMB_CheckVirtualPath(url)
+	if is_smb {
 		// if search_name != "" {
 		// 	return nil
 		// }
@@ -136,15 +137,8 @@ func NewFileListAsync_DetectType(path *LinuxPath, search_name string, buffer_siz
 		// }
 		return NewFileListAsync_Disks(notify_period)
 	}
-	if StringPart(url, 1, len_smb) == LINUX_SMB {
-		pc_name := StringPart(url, len_smb+1, 0)
-		pc_name = FilePathEndSlashRemove(pc_name)
-		if StringFind(pc_name, GetOS_Slash()) == 0 {
-			// if search_name != "" {
-			// 	return nil
-			// }
-			return NewFileListAsync_NetworkFolders(pc_name, notify_period)
-		}
+	if StringLength(pc_name) > 0 && StringLength(netfolder) == 0 {
+		return NewFileListAsync_NetworkFolders(pc_name, notify_period)
 	}
 	if search_name != "" {
 		return NewFileListAsync_Searcher(path.GetReal(), search_name, notify_period)
@@ -233,9 +227,9 @@ func NewFileListAsync_Directory(path_real string, buffer_size int, notify_period
 							break
 						}
 					} else {
-						m.lock.Lock()
-						m.err = err1
-						m.lock.Unlock()
+						// m.lock.Lock()
+						// m.err = err1
+						// m.lock.Unlock()
 						close(chan_found)
 						break
 					}
@@ -247,7 +241,7 @@ func NewFileListAsync_Directory(path_real string, buffer_size int, notify_period
 			m.err = err0
 			arr := StringSplit(FilePathEndSlashRemove(path_real), "/")
 			if len(arr) == 6 && arr[1] == "run" && arr[2] == "user" && arr[4] == "gvfs" && StringFind(arr[5], "smb-share:") == 1 { // /run/user/???/gvfs/smb-share:
-				m.err = ErrorWithText("Mounting is not supoerted yet. Use default file-manager.")
+				m.err = ErrorWithText("Mounting is not fully supported yet. Use default file-manager.")
 			}
 			m.lock.Unlock()
 		}

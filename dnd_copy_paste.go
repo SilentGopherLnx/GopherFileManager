@@ -48,7 +48,7 @@ func GTK_CopyPasteDnd_SetWindowKeyPressed(path *LinuxPath, key uint, state uint)
 			fnames := FilesSelector_GetList()
 			if len(fnames) == 1 {
 				Dialog_FileRename(win, path.GetReal(), fnames[0], func() {
-					listFiles(gGFiles, path, false)
+					//listFiles(gGFiles, path, false)
 				})
 			}
 		}
