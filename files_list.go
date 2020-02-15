@@ -226,7 +226,7 @@ func AddFilesToList(g *gtk.Grid, files []*LinuxFileReport, lpath2 string, req in
 		})
 		iconwithlabel.ConnectEventBox("button-release-event", func(_ *gtk.EventBox, event *gdk.Event) {
 			//disable_focus()
-			mousekey, X, Y := GTK_MouseKeyOfEvent(event)
+			mousekey, X, Y, state := GTK_MouseKeyOfEvent(event)
 			switch mousekey {
 			case 1:
 				dt := AbcF(TimeSeconds(clicktime))
@@ -238,6 +238,13 @@ func AddFilesToList(g *gtk.Grid, files []*LinuxFileReport, lpath2 string, req in
 					if isdir {
 						//path, _ = gInpPath.GetText()
 						//path.SetReal(path.GetReal() + txtlbl)
+
+						auto_mount := false
+						_, pc_name, netfolder := SMB_CheckVirtualPath(path.GetUrl())
+						if !ismount && StringLength(pc_name) > 0 && StringLength(netfolder) == 0 {
+							auto_mount = true
+						}
+
 						path.GoDeeper(txtlbl)
 						if opt.GetSymlinkEval() && !path.GetParseProblems() {
 							r2, err := FileEvalSymlinks(path.GetReal())
@@ -247,6 +254,12 @@ func AddFilesToList(g *gtk.Grid, files []*LinuxFileReport, lpath2 string, req in
 						}
 						gInpPath.SetText(path.GetVisual())
 						gInpSearch.SetText("")
+
+						if auto_mount {
+							//Prln("TODO: Add auto-mount here")
+							Dialog_Mount(win, pc_name, txtlbl, true)
+						}
+
 						listFiles(gGFiles, path, true, true)
 					} else {
 						OpenFileByApp(path.GetReal()+txtlbl, "")
@@ -255,8 +268,12 @@ func AddFilesToList(g *gtk.Grid, files []*LinuxFileReport, lpath2 string, req in
 					clicktime = TimeNow()
 					if X > 20 || Y > 20 {
 						Prln(">>click at file block")
-						FilesSelector_ResetChecks()
-						iconwithlabel.SetSelected(true)
+						if !GTK_KeyboardCtrlState(state) {
+							FilesSelector_ResetChecks()
+							iconwithlabel.SetSelected(true)
+						} else {
+							iconwithlabel.SetSelected(!iconwithlabel.GetSelected())
+						}
 					}
 				}
 				//gGFiles.QueueDraw()
@@ -527,4 +544,15 @@ func (h *PathHistory) GetList() (int, []string, []string) {
 func (h *PathHistory) GoAt(id int) (bool, string, string) {
 	//TODO
 	return false, "", ""
+}
+
+func (h *PathHistory) GetCurrent() (string, string) {
+	i := h.ind - 1
+	if len(h.pathes) > 0 && i >= 0 && i < len(h.pathes) {
+		return h.pathes[i], h.searches[i]
+	} else {
+		Prln("History GetCurrent(): Error")
+		return "", ""
+	}
+
 }

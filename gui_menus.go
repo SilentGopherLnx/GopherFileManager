@@ -10,7 +10,13 @@ import (
 	"github.com/gotk3/gotk3/gtk"
 )
 
-func GTKMenu_CurrentFolder(menu *gtk.Menu, folderpath LinuxPath) {
+func GTKMenu_CurrentFolder(menu *gtk.Menu, folderpath LinuxPath, search string) {
+	GTK_Childs(menu, true, true)
+	url := folderpath.GetUrl()
+	is_smb, pc_name, netfolder := SMB_CheckVirtualPath(url)
+	if StringLength(search) > 0 || is_smb || (StringLength(pc_name) > 0 && StringLength(netfolder) == 0) {
+		return
+	}
 	paste_list, _ := LinuxClipBoard_PasteFiles()
 	fp := folderpath.GetReal()
 	var func_paste func() = nil
@@ -268,7 +274,7 @@ func GTKMenu_SMB(menu *gtk.Menu, pc_name string, folder_name string, mounted boo
 	//GTK_MenuSeparator(rightmenu)
 }
 
-func GTKMenu_Main(win *gtk.Window) *gtk.MenuBar {
+func GTKMenu_Main(win *gtk.Window) (*gtk.MenuBar, *gtk.Menu) {
 	menuBar, _ := gtk.MenuBarNew()
 	submenu_file := GTK_MenuSub(menuBar, "Commands")
 	GTK_MenuItem(submenu_file, "New window", nil)
@@ -286,12 +292,12 @@ func GTKMenu_Main(win *gtk.Window) *gtk.MenuBar {
 	})
 
 	submenu_edit := GTK_MenuSub(menuBar, "Current Folder")
-	GTKMenu_CurrentFolder(submenu_edit, *path)
+	//GTKMenu_CurrentFolder(submenu_edit, *path)
 
 	submenu_other := GTK_MenuSub(menuBar, "Info")
 	GTK_MenuItem(submenu_other, "Help", nil)
 	GTK_MenuItem(submenu_other, "About", func() {
-		Dialog_About(win, AppVersion(), AppAuthor(), AppMail(), AppRepository(), GetFlag_Russian())
+		Dialog_About(win, AppVersion(), AppAuthor(), AppMail(), AppRepository(), AppAboutMore(), GetFlag_Russian())
 	})
-	return menuBar
+	return menuBar, submenu_edit
 }

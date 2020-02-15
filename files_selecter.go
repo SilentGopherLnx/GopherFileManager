@@ -12,6 +12,9 @@ import (
 var select_mode bool
 var select_x1, select_y1, select_x2, select_y2 int
 
+var select_with_old bool
+var selected_old []int
+
 func FilesSelector_GetList() []string {
 	arr := []string{}
 	for j := 0; j < len(arr_blocks); j++ {
@@ -45,7 +48,7 @@ func FilesSelector_MouseAtSelectZone(x0, y0 int) bool {
 }
 
 func FilesSelector_MousePressed(event *gdk.Event, scroll *gtk.ScrolledWindow) (int, int, int, bool) {
-	mousekey, x1, y1 := GTK_MouseKeyOfEvent(event)
+	mousekey, x1, y1, _ := GTK_MouseKeyOfEvent(event)
 	_, dy := GTK_ScrollGetValues(scroll)
 	y1 += dy
 	zone := FilesSelector_MouseAtSelectZone(x1, y1)
@@ -57,12 +60,18 @@ func FilesSelector_MousePressed(event *gdk.Event, scroll *gtk.ScrolledWindow) (i
 		Prln("select mouse1_down " + I2S(x1) + "/" + I2S(y1+dy))
 		//scroll.GrabFocus()
 	}
+	selected_old = []int{}
+	for j := 0; j < len(arr_blocks); j++ {
+		if arr_blocks[j].GetSelected() {
+			selected_old = append(selected_old, j)
+		}
+	}
 	return mousekey, x1, y1, zone
 }
 
 func FilesSelector_MouseMoved(event *gdk.Event, scroll *gtk.ScrolledWindow, redraw func()) {
 	if select_x1 > 0 && select_y1 > 0 {
-		_, x2, y2 := GTK_MouseKeyOfEvent(event)
+		_, x2, y2, _ := GTK_MouseKeyOfEvent(event)
 		_, dy := GTK_ScrollGetValues(scroll)
 		y2 += dy
 		select_x2 = x2
@@ -70,14 +79,14 @@ func FilesSelector_MouseMoved(event *gdk.Event, scroll *gtk.ScrolledWindow, redr
 		//Prln("rect " + I2S(select_x1) + "," + I2S(select_y1) + " / " + I2S(select_x2) + "," + I2S(select_y2))
 		for j := 0; j < len(arr_blocks); j++ {
 			is_inside := arr_blocks[j].IsInSelectRect(&gGFiles.Widget, select_x1, select_y1, select_x2, select_y2)
-			arr_blocks[j].SetSelected(is_inside)
+			arr_blocks[j].SetSelected(is_inside || IntInArray(j, selected_old) > -1)
 		}
 		redraw()
 	}
 }
 
 func FilesSelector_MouseRelease(event *gdk.Event, scroll *gtk.ScrolledWindow, redraw func()) {
-	mousekey, x2, y2 := GTK_MouseKeyOfEvent(event)
+	mousekey, x2, y2, _ := GTK_MouseKeyOfEvent(event)
 	_, dy := GTK_ScrollGetValues(scroll)
 	y2 += dy
 	zone2 := FilesSelector_MouseAtSelectZone(x2, y2)
@@ -90,6 +99,7 @@ func FilesSelector_MouseRelease(event *gdk.Event, scroll *gtk.ScrolledWindow, re
 		}
 		FilesSelector_ResetRect()
 		redraw()
+		selected_old = []int{}
 	}
 }
 

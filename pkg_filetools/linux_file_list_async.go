@@ -241,7 +241,7 @@ func NewFileListAsync_Directory(path_real string, buffer_size int, notify_period
 			m.err = err0
 			arr := StringSplit(FilePathEndSlashRemove(path_real), "/")
 			if len(arr) == 6 && arr[1] == "run" && arr[2] == "user" && arr[4] == "gvfs" && StringFind(arr[5], "smb-share:") == 1 { // /run/user/???/gvfs/smb-share:
-				m.err = ErrorWithText("Mounting is not fully supported yet. Use default file-manager.")
+				m.err = ErrorWithText("Mounting is not fully supported yet. Use default file-manager. You can also use \"mount\" in menu if password is empty or saved in system")
 			}
 			m.lock.Unlock()
 		}

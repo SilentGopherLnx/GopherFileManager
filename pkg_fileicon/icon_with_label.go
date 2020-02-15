@@ -318,7 +318,8 @@ func (i *FileIconBlock) IsInSelectRect(container *gtk.Widget, x1, y1, x2, y2 int
 	r2 := checker(tx0+tw, ty0, x1, y1, x2, y2)
 	r3 := checker(tx0, ty0+th, x1, y1, x2, y2)
 	r4 := checker(tx0+tw, ty0+th, x1, y1, x2, y2)
-	return r1 || r2 || r3 || r4
+	r5 := checker(tx0+tw/2, ty0+th/2, x1, y1, x2, y2)
+	return r1 || r2 || r3 || r4 || r5
 }
 
 func (i *FileIconBlock) SetSelected(v bool) {

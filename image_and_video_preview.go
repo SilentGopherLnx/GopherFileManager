@@ -128,7 +128,7 @@ func GetPreview_VideoImage(filename string, zoom_size int, killchan chan *exec.C
 	if save_hash && !InterfaceNil(img) {
 		info, err := FileInfo(filename, false)
 		if err == nil {
-			CachePreview_WriteImage(&info, 0, img)
+			CachePreview_WriteImage(&info, 0, img, false)
 		}
 	}
 	return GetPreview_ImageImage(img, zoom_size)
@@ -289,16 +289,22 @@ func CachePreview_ReadImage(info *FileReport, zoom_size int, alphamask *image.RG
 	}
 }
 
-func CachePreview_WriteImage(info *FileReport, zoom_size int, img image.Image) bool {
+func CachePreview_WriteImage(info *FileReport, zoom_size int, img image.Image, delete_mode bool) bool {
 	hash_str := CachePreview_Function(info, zoom_size)
-	f, err1 := os.Create(opt.GetHashFolder() + hash_str + ".jpg")
-	if err1 == nil {
-		err2 := jpeg.Encode(f, img, &jpeg.Options{Quality: 50})
-		if err2 == nil {
-			return true
+	cname := opt.GetHashFolder() + hash_str + ".jpg"
+	if delete_mode {
+		FileDelete(cname)
+		return true
+	} else {
+		f, err1 := os.Create(cname)
+		if err1 == nil {
+			err2 := jpeg.Encode(f, img, &jpeg.Options{Quality: 50})
+			if err2 == nil {
+				return true
+			}
 		}
+		return false
 	}
-	return false
 }
 
 func GetPixBufGTK_Folder(folderpath string, zoom_size int, basic_mode bool, qu *SyncQueue, killchan chan *exec.Cmd, req int64) (*gdk.Pixbuf, bool) { // icon_msg *IconUpdateable
@@ -386,8 +392,10 @@ func GetPixBufGTK_Folder(folderpath string, zoom_size int, basic_mode bool, qu *
 		if req_id.Get() != req {
 			Prln(">>>>>>>>> SKIP FOLDER CACHE PIC: " + folderpath2)
 		} else {
-			CachePreview_WriteImage(&FileReport{FullName: FilePathEndSlashRemove(folderpath2), IsDirectory: true}, zoom_size, imgRGBA)
+			CachePreview_WriteImage(&FileReport{FullName: FilePathEndSlashRemove(folderpath2), IsDirectory: true}, zoom_size, imgRGBA, false)
 		}
+	} else {
+		CachePreview_WriteImage(&FileReport{FullName: FilePathEndSlashRemove(folderpath2), IsDirectory: true}, zoom_size, imgRGBA, true)
 	}
 
 	pixbuf := GTK_PixBuf_From_RGBA(imgRGBA)

@@ -1,7 +1,7 @@
 package main
 
 func AppVersion() string {
-	return "0.3.1" //manager
+	return "0.3.2" //manager
 }
 
 func AppAuthor() string {
@@ -14,4 +14,14 @@ func AppMail() string {
 
 func AppRepository() string {
 	return "github.com/SilentGopherLnx/GopherFileManager"
+}
+
+func AppAboutMore() string {
+	return "Check you have installed:" +
+		"\n" +
+		"github.com/SilentGopherLnx/FileMoverGui" +
+		"\n" +
+		"sudo apt-get install ffmpeg" +
+		"\n" +
+		"sudo apt-get install smbclient"
 }

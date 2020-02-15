@@ -3,7 +3,7 @@
 
 I wanted to create **Linux file manager with "folder trumbnails"** like in Dolpin file manager
 
-Source code is so bad now. It will be added later... Look here for executable file https://github.com/SilentGopherLnx/screenshots_and_binaries/tree/master/BIN64_GopherFileManagerFileMoverGui
+Source code is so bad now. It maybe will fix it later... Look here for executable file https://github.com/SilentGopherLnx/screenshots_and_binaries/tree/master/BIN64_GopherFileManagerFileMoverGui
 
 ![screenshot](https://github.com/SilentGopherLnx/screenshots_and_binaries/blob/master/SCREENS_GopherFileManagerFileMoverGui/manager_00.png)
 
@@ -48,8 +48,8 @@ https://github.com/SilentGopherLnx/FileMoverGui
 2) **ffmpeg** for **video trumbnails**
 > sudo apt-get install ffmpeg
 
-3) **smbclient** for getting smb folders list of one server (currently not implemented)
-> sudo apt install smbclient
+3) **smbclient** for getting smb folders list of one server
+> sudo apt-get install smbclient
 
 **programs below usualy included in linux** (if you not have them, you should install it):
 1) gtk, gvfs, bash - libs
@@ -87,19 +87,20 @@ App is under development and not versionized (you can see version if run with on
 - 0.2.2 - new cache method, exif orientation, paste into in menu, russian keyboard shortcuts fix
 - **0.3.0** - async file list loading! searching files! network listing! movie files length on icon
 - **0.3.1** - smb mount, path history, search results menus
+- **0.3.2** - mouse selecting with Ctrl button, fixing unnecessary menu's bugs
 
 # Platform & License:
 **Only Linux!** Tested mostly on amd64 on Cinnamon desktop (Linux Mint 19).
 Also tested once on Gentoo 17 (gnome 3) amd64.
 
-Windows support is NOT planned
+Windows/MasOS support is NOT planned
 
 **License type is GPL3**
 
 # Some configurations for good work:
 Open "View/Options" and change if you need:
  - Path to **FileMoverGui** app on golang
- - Path to **hash folder** for trumbnails. Create it id not exist or choose another! 
+ - Path to **hash folder** for trumbnails. Create it if not exist or choose another! 
  - System file manager name ("nemo" is default)
  - System terminal name ("gnome-terminal" is default)
 

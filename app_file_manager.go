@@ -42,6 +42,7 @@ var gInpPath, gInpSearch *gtk.Entry
 var gBtnUp *gtk.Button
 var gBtnRefresh *gtk.Button
 var mem, space *gtk.Label
+var top_current_menu *gtk.Menu
 
 var gBtnBack, gBtnForward *gtk.Button
 var hist *PathHistory = PathHistoryNew()
@@ -312,7 +313,8 @@ func main() {
 		if mousekey == 3 && zone {
 			if rightmenu == nil || !rightmenu.IsVisible() {
 				rightmenu, _ = gtk.MenuNew()
-				GTKMenu_CurrentFolder(rightmenu, *path)
+				_, s := hist.GetCurrent()
+				GTKMenu_CurrentFolder(rightmenu, *path, s)
 				rightmenu.ShowAll()
 				rightmenu.PopupAtPointer(event)
 			} else {
@@ -455,7 +457,7 @@ func main() {
 	gGDown.Attach(spinnerIcons, 0, 0, 1, 1)
 	gGDown.Attach(mem, 1, 0, 1, 1)
 	gGDown.Attach(space, 2, 0, 1, 1)
-	gGDown.Attach(gCheckDragCopy, 3, 0, 1, 1)
+	//gGDown.Attach(gCheckDragCopy, 3, 0, 1, 1)
 	gGDown.Attach(gCheckPreviewCache, 4, 0, 1, 1)
 	gGDown.Attach(gCheckPreviewFolders, 5, 0, 1, 1)
 	gGDown.Attach(gCheckPreviewFiles, 6, 0, 1, 1)
@@ -482,7 +484,8 @@ func main() {
 
 	// ================
 
-	menuBar := GTKMenu_Main(win)
+	var menuBar *gtk.MenuBar
+	menuBar, top_current_menu = GTKMenu_Main(win)
 
 	// ================
 
@@ -539,7 +542,16 @@ func upd_title() {
 			folder_name = pc_name
 		}
 	}
-	win.SetTitle(folder_name + " " + sudo + " GopherFileManager")
+	search := ""
+	s, _ := gInpSearch.GetText()
+	if s != "" {
+		search = "Search: [" + s + "] /"
+	}
+	win.SetTitle(search + folder_name + " " + sudo + " GopherFileManager")
+	if top_current_menu != nil && path != nil {
+		GTKMenu_CurrentFolder(top_current_menu, *path, s)
+		top_current_menu.ShowAll()
+	}
 }
 
 func OpenManager(path_to_folder string) {

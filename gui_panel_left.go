@@ -105,7 +105,7 @@ func listDiscs(g *gtk.Box) {
 		}
 
 		gDBtn.Connect("button-press-event", func(_ *gtk.Button, event *gdk.Event) {
-			mousekey, _, _ := GTK_MouseKeyOfEvent(event)
+			mousekey, _, _, _ := GTK_MouseKeyOfEvent(event)
 			switch mousekey {
 			case 3:
 				Prln("right")
