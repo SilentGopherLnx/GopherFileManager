@@ -5,8 +5,8 @@ import (
 	. "github.com/SilentGopherLnx/easygolang/easygtk"
 	. "github.com/SilentGopherLnx/easygolang/easylinux"
 
-	. "./pkg_fileicon"
-	. "./pkg_filetools"
+	. "github.com/SilentGopherLnx/GopherFileManager/pkg_fileicon"
+	. "github.com/SilentGopherLnx/GopherFileManager/pkg_filetools"
 
 	//	"os/exec"
 

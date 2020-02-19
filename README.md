@@ -88,6 +88,7 @@ App is under development and not versionized (you can see version if run with on
 - **0.3.0** - async file list loading! searching files! network listing! movie files length on icon
 - **0.3.1** - smb mount, path history, search results menus
 - **0.3.2** - mouse selecting with Ctrl button, fixing unnecessary menu's bugs
+- **0.3.3** - fixing for installing by go get
 
 # Platform & License:
 **Only Linux!** Tested mostly on amd64 on Cinnamon desktop (Linux Mint 19).

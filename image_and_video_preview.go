@@ -4,8 +4,8 @@ import (
 	. "github.com/SilentGopherLnx/easygolang"
 	. "github.com/SilentGopherLnx/easygolang/easygtk"
 
-	. "./pkg_fileicon"
-	. "./pkg_filetools"
+	. "github.com/SilentGopherLnx/GopherFileManager/pkg_fileicon"
+	. "github.com/SilentGopherLnx/GopherFileManager/pkg_filetools"
 
 	"github.com/gotk3/gotk3/gdk"
 

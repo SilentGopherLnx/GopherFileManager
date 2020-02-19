@@ -5,7 +5,7 @@ import (
 	. "github.com/SilentGopherLnx/easygolang/easygtk"
 	. "github.com/SilentGopherLnx/easygolang/easylinux"
 
-	. "./pkg_filetools"
+	. "github.com/SilentGopherLnx/GopherFileManager/pkg_filetools"
 
 	"github.com/gotk3/gotk3/gtk"
 )
@@ -282,7 +282,7 @@ func GTKMenu_Main(win *gtk.Window) (*gtk.MenuBar, *gtk.Menu) {
 	GTK_MenuItem(submenu_file, "Reload drives list", func() {
 		listDiscs(gGDiscs)
 	})
-	GTK_MenuItem(submenu_file, "Search", nil)
+	//GTK_MenuItem(submenu_file, "Search", nil)
 	submenu_view := GTK_MenuSub(menuBar, "View")
 	GTK_MenuItem(submenu_view, "Hidden files", nil)
 	GTK_MenuItem(submenu_view, "List of files/Icons table", nil)
