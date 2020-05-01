@@ -85,18 +85,11 @@ App is under development and looks freaky
 - 0.2.0 - added multiple select files by mouse + hotkeys (Ctrl+C,Ctrl+V,Del)
 - 0.2.1 - hotkeys F2,F5,Ctrl+A; info for multiseleced files; copy folder near itself
 - 0.2.2 - new cache method, exif orientation, paste into in menu, russian keyboard shortcuts fix
-<<<<<<< HEAD
 - 0.3.0 - async file list loading! searching files! network listing! movie files length on icon
 - 0.3.1 - smb mount, path history, search results menus
 - 0.3.2 - mouse selecting with Ctrl button, fixing unnecessary menu's bugs
 - **0.3.3** - fixing for install and compile from source code by **go get**
 - **0.4.0** - multi-language support(+russian), checking for new verison button, fix for latest gtk release, fixing for multi-language keyboard hotkeys (Ctrl+C,Ctrl+X,Ctrl+V),renaming gialog moved to helper app
-=======
-- **0.3.0** - async file list loading! searching files! network listing! movie files length on icon
-- **0.3.1** - smb mount, path history, search results menus
-- **0.3.2** - mouse selecting with Ctrl button, fixing unnecessary menu's bugs
-- **0.3.3** - fixing for installing by go get
->>>>>>> 1ab762b127d21020fc00111b712aa79781f8dee7
 
 # Platform & License:
 **Only Linux!** Tested mostly on amd64 on Cinnamon desktop (Linux Mint 19).

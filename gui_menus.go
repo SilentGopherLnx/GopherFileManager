@@ -308,6 +308,7 @@ func GTKMenu_Main(win *gtk.Window) (*gtk.MenuBar, *gtk.Menu) {
 	GTK_MenuItem(submenu_other, langs.GetStr("main_check_update"), func() {
 		ok1, v_num1 := GetLastVerison(UrlLastVerison_Manager())
 		ok2, v_num2 := GetLastVerison(UrlLastVerison_Mover())
+		Prln(B2S_TF(ok1) + v_num1 + "_" + B2S_TF(ok2) + v_num2)
 		av1 := AppVersion()
 		av2 := AppVersion_Mover(opt.GetFileMover())
 		m0 := ""
