@@ -18,6 +18,7 @@ var opt *OptionsContainer = nil
 
 const OPTIONS_FILE = "options.cfg"
 
+const OPTIONS_LANG = "language"
 const OPTIONS_INIT_ZOOM = "init_zoom"
 const OPTIONS_APP_FILEMOVER = "filemover_path"
 const OPTIONS_MOVER_BUFFER = "filemover_buffer"
@@ -33,10 +34,6 @@ const OPTIONS_SYMLINKS_EVAL = "symlinks_eval"
 const OPTIONS_EXIF_ROTATION = "exif_rotation"
 const OPTIONS_FOLDER_LIMIT = "folder_limit"
 
-func init() {
-	InitOptions()
-}
-
 func InitOptions() {
 	if opt == nil {
 		opt = &OptionsContainer{st: NewOptionsStorage()}
@@ -44,28 +41,35 @@ func InitOptions() {
 		return
 	}
 
+	opt_lang := &OptionsContainer{st: NewOptionsStorage()}
+	opt_lang.st.AddRecord_Array(1, OPTIONS_LANG, "en", langs.GetLangsCodes(), OPTIONS_LANG)
+	opt_lang.st.RecordsValues_Load(FolderLocation_App() + OPTIONS_FILE)
+	langs.SetLang(opt_lang.GetLanguage())
+
+	opt.st.AddRecord_Array(99, OPTIONS_LANG, "en", langs.GetLangsCodes(), "Language (Need restart!)")
+
 	zooms_str := []string{}
 	za := Constant_ZoomArray()
 	for j := 0; j < len(za); j++ {
 		zooms_str = append(zooms_str, I2S(za[j]))
 	}
-	opt.st.AddRecord_Array(100, OPTIONS_INIT_ZOOM, I2S(za[len(za)/2]), zooms_str, "Initial zoom")
+	opt.st.AddRecord_Array(100, OPTIONS_INIT_ZOOM, I2S(za[len(za)/2]), zooms_str, langs.GetStr("options_init_zoom"))
 
-	opt.st.AddRecord_String(201, OPTIONS_APP_FILEMOVER, "FileMoverGui", "FileMover's App path (relative or absolute)")
-	opt.st.AddRecord_Array(202, OPTIONS_MOVER_BUFFER, "16", []string{"1", "4", "8", "16", "32", "64", "128"}, "File mover buffer size in bytes (multiplied by 1024)")
+	opt.st.AddRecord_String(201, OPTIONS_APP_FILEMOVER, "FileMoverGui", langs.GetStr("options_filemover_path"))
+	opt.st.AddRecord_Array(202, OPTIONS_MOVER_BUFFER, "16", []string{"1", "4", "8", "16", "32", "64", "128"}, langs.GetStr("options_filemover_buffer"))
 
-	opt.st.AddRecord_String(301, OPTIONS_FOLDER_HASH, "hash/", "Path (relative or absolute) to hash folder (should exist)")
-	opt.st.AddRecord_Array(302, OPTIONS_NUM_THREADS, "12", []string{"1", "2", "4", "6", "8", "12", "16", "24", "32"}, "Number of thrumbnails icon threads (need restart)")
+	opt.st.AddRecord_String(301, OPTIONS_FOLDER_HASH, "hash/", langs.GetStr("options_hash_path"))
+	opt.st.AddRecord_Array(302, OPTIONS_NUM_THREADS, "12", []string{"1", "2", "4", "6", "8", "12", "16", "24", "32"}, langs.GetStr("options_threads"))
 
 	opt.st.AddRecord_String(401, OPTIONS_SYSTEM_TERMINAL, "gnome-terminal --working-directory=%F", "System terminal app for run. %F - path argument")
 	opt.st.AddRecord_String(402, OPTIONS_SYSTEM_FILEMANAGER, "nemo %F", "System file manager app for run. %F - path argument")
 	opt.st.AddRecord_String(403, OPTIONS_SYSTEM_TEXTEDITOR, "xed", "Your text editor (without arguments)")
 
-	opt.st.AddRecord_Integer(501, OPTIONS_FFMPEG_TIMEOUT, 6, 2, 10, "FFmpeg max time wait before kill it")
-	opt.st.AddRecord_Integer(502, OPTIONS_INOTIFY_PERIOD, 2, 1, 5, "Process \"inotify\" minimum period of directory content change reaction")
-	opt.st.AddRecord_Integer(503, OPTIONS_VIDEO_PREVIEW_PERCENT, 50, 1, 99, "Percent of video duration for preview frame")
+	opt.st.AddRecord_Integer(501, OPTIONS_FFMPEG_TIMEOUT, 6, 2, 10, langs.GetStr("options_ffmpeg"))
+	opt.st.AddRecord_Integer(502, OPTIONS_INOTIFY_PERIOD, 2, 1, 5, langs.GetStr("options_inotify"))
+	opt.st.AddRecord_Integer(503, OPTIONS_VIDEO_PREVIEW_PERCENT, 50, 1, 99, langs.GetStr("options_video_percent"))
 
-	opt.st.AddRecord_Integer(504, OPTIONS_FOLDER_LIMIT, 10, 2, 50, "maximum files per folder (or search results) for display x100")
+	opt.st.AddRecord_Integer(504, OPTIONS_FOLDER_LIMIT, 10, 2, 50, langs.GetStr("options_max_result"))
 
 	opt.st.AddRecord_Boolean(601, OPTIONS_SYMLINKS_EVAL, true, "Open symlinks as real path to folder")
 	opt.st.AddRecord_Boolean(602, OPTIONS_EXIF_ROTATION, true, "Use EXIF orientation tag for JPEG images")
@@ -73,6 +77,14 @@ func InitOptions() {
 	opt.st.RecordsValues_Load(FolderLocation_App() + OPTIONS_FILE)
 	opt.st.RecordsValues_Save(FolderLocation_App() + OPTIONS_FILE)
 
+}
+
+func (o *OptionsContainer) GetLanguage() string {
+	z := o.st.ValueGetString(OPTIONS_LANG)
+	if StringTrim(z) == "" {
+		return DEFAULT_LANG
+	}
+	return z
 }
 
 func (o *OptionsContainer) GetZoom() int {
@@ -203,6 +215,7 @@ func Dialog_Options(w *gtk.Window) {
 
 	win2.Connect("destroy", func() {
 		opt.st.RecordsValues_Save(FolderLocation_App() + OPTIONS_FILE)
+		langs.SetLang(opt.GetLanguage())
 	})
 
 	win2.ShowAll()

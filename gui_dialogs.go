@@ -7,11 +7,18 @@ import (
 
 	. "github.com/SilentGopherLnx/GopherFileManager/pkg_filetools"
 
-	"github.com/gotk3/gotk3/gdk"
+	//	"github.com/gotk3/gotk3/gdk"
 	"github.com/gotk3/gotk3/gtk"
 )
 
 func Dialog_FileRename(w *gtk.Window, fpath string, fname_old string, upd func()) {
+	file1 := NewLinuxPath(false) //??
+	file1.SetReal(FolderPathEndSlash(fpath) + fname_old)
+	Prln("rename: " + file1.GetUrl())
+	RunFileOperaion([]*LinuxPath{file1}, nil, OPER_RENAME)
+}
+
+/*func Dialog_FileRename(w *gtk.Window, fpath string, fname_old string, upd func()) {
 	fname_prev := FilePathEndSlashRemove(fname_old)
 	dial, box := GTK_Dialog(w, "Rename: "+fname_prev)
 	dial.SetDefaultSize(350, 90)
@@ -49,7 +56,7 @@ func Dialog_FileRename(w *gtk.Window, fpath string, fname_old string, upd func()
 
 	btnok.Connect("button-press-event", ok_func)
 	dial.Connect("key-press-event", func(_ *gtk.Dialog, ev *gdk.Event) {
-		uint_key, _ := GTK_KeyboardKeyOfEvent(ev)
+		uint_key, _, _ := GTK_KeyboardKeyOfEvent(ev)
 		if uint_key == 65293 { // Enter 65293   gdk.KEY_enter
 			ok_func()
 		}
@@ -77,7 +84,7 @@ func Dialog_FileRename(w *gtk.Window, fpath string, fname_old string, upd func()
 	inpname.SelectRegion(0, ind)
 	dial.Run()
 	dial.Close()
-}
+}*/
 
 func Dialog_FileInfo(w *gtk.Window, fpath string, fnames []string) {
 	winw, winh := 300, 300
@@ -202,6 +209,20 @@ func Dialog_FolderError(w *gtk.Window, err error, path_visual string) {
 	dial, box := GTK_Dialog(w, "Error")
 
 	lbl_err, _ := gtk.LabelNew(StringFill(err.Error(), 20))
+
+	box.SetOrientation(gtk.ORIENTATION_VERTICAL)
+	box.Add(lbl_err)
+
+	dial.SetResizable(false)
+	dial.ShowAll()
+	dial.Run()
+	dial.Close()
+}
+
+func Dialog_Message(w *gtk.Window, text string) {
+	dial, box := GTK_Dialog(w, "Message")
+
+	lbl_err, _ := gtk.LabelNew(StringFill(text, 20))
 
 	box.SetOrientation(gtk.ORIENTATION_VERTICAL)
 	box.Add(lbl_err)

@@ -60,12 +60,19 @@ func listDiscs(g *gtk.Box) {
 
 		if j == 0 {
 			lbl1.SetMarkup("<b><u>" + HtmlEscape(StringUp(d.PartName)) + "</u></b>")
-			lbl2.SetText("HOME")
+			lbl2.SetText(langs.GetStr("gui_home"))
+		}
+
+		if j == 1 {
+			lbl1.SetMarkup("<b><u>" + HtmlEscape(langs.GetStr("gui_net")) + "</u></b>")
 		}
 
 		extra := StringFind(StringDown(d.PartName), "gvfsd-fuse") > 0
 		if len(StringTrim(d.Model)) > 0 && !extra {
 			lbl3, _ := gtk.LabelNew(d.Model)
+			if j == 1 {
+				lbl3.SetText(langs.GetStr("gui_smb"))
+			}
 			lbl3.SetJustify(gtk.JUSTIFY_LEFT)
 			lbl3.SetHAlign(gtk.ALIGN_START)
 			lbl3.SetHExpand(true)
@@ -112,12 +119,12 @@ func listDiscs(g *gtk.Box) {
 				rightmenu, _ := gtk.MenuNew()
 
 				if !d.Primary && d.SpacePercent >= 0 {
-					GTK_MenuItem(rightmenu, "Eject", nil)
+					GTK_MenuItem(rightmenu, langs.GetStr("main_disk_eject"), nil)
 				}
 				if d.SpacePercent < 0 {
-					GTK_MenuItem(rightmenu, "Remove", nil)
+					GTK_MenuItem(rightmenu, langs.GetStr("cmd_fav_del"), nil)
 				}
-				GTK_MenuItem(rightmenu, "Info", nil)
+				GTK_MenuItem(rightmenu, langs.GetStr("cmd_files_info"), nil)
 
 				rightmenu.ShowAll()
 				rightmenu.PopupAtPointer(event) // (evBox, gdk.GDK_GRAVITY_STATIC, gdk.GDK_GRAVITY_STATIC,

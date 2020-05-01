@@ -14,12 +14,13 @@ const OPER_COPY = "copy"
 const OPER_MOVE = "move"
 const OPER_DELETE = "delete"
 const OPER_CLEAR = "clear"
+const OPER_RENAME = "rename"
 
 // https://github.com/geany/geany/issues/1368
 // GtkAccelGroup *accel_group = gtk_accel_group_new ();
 // gtk_window_add_accel_group (GTK_WINDOW (window), accel_group);
 // gtk_accel_group_connect (accel_group, GDK_KEY_Q, GDK_CONTROL_MASK, 0, g_cclosure_new_swap (G_CALLBACK (hello), window, NULL));
-func GTK_CopyPasteDnd_SetWindowKeyPressed(path *LinuxPath, key uint, state uint) {
+func GTK_CopyPasteDnd_SetWindowKeyPressed(path *LinuxPath, key uint, state uint, hkey uint16) {
 	fnames := FilesSelector_GetList()
 	_, s := hist.GetCurrent()
 	url := path.GetUrl()
@@ -27,20 +28,20 @@ func GTK_CopyPasteDnd_SetWindowKeyPressed(path *LinuxPath, key uint, state uint)
 	if StringLength(s) != 0 || is_smb || (StringLength(pc_name) > 0 && StringLength(netfolder) == 0) {
 
 	} else {
-		if GTK_KeyboardCtrlState(state) { // //key:65507 Ctrl
-			if key == gdk.KEY_x { //120
+		if GTK_KeyboardCtrlState(state) {
+			if key == gdk.KEY_x || hkey == 53 { //120
 				Prln("Ctrl+X")
 				GTK_CopyPasteDnd_CopyDel(path.GetReal(), true, false)
 			}
-			if key == gdk.KEY_c { //99
+			if key == gdk.KEY_c || hkey == 54 { //99
 				Prln("Ctrl+C")
 				GTK_CopyPasteDnd_CopyDel(path.GetReal(), false, false)
 			}
-			if key == gdk.KEY_v { //118
+			if key == gdk.KEY_v || hkey == 55 { //118
 				Prln("Ctrl+V")
 				GTK_CopyPasteDnd_Paste(path.GetReal())
 			}
-			if key == gdk.KEY_a { //select all
+			if key == gdk.KEY_a || hkey == 38 { //gdk.KEY_a
 				Prln("Ctrl+A")
 				FilesSelector_SelectAll()
 			}
@@ -193,9 +194,9 @@ func RunFileOperaion(from []*LinuxPath, dest *LinuxPath, operation string) {
 			}
 			a, b, c := "", "", ""
 			if dest != nil {
-				a, b, c = ExecCommand(opt.GetFileMover(), "-cmd", operation, "-src", from_str, "-dst", dest.GetUrl(), "-buf", I2S(opt.GetMoverBuffer()))
+				a, b, c = ExecCommand(opt.GetFileMover(), "-cmd", operation, "-src", from_str, "-dst", dest.GetUrl(), "-buf", I2S(opt.GetMoverBuffer()), "-lang", opt.GetLanguage())
 			} else {
-				a, b, c = ExecCommand(opt.GetFileMover(), "-cmd", operation, "-src", from_str) //, "-dst", "/", "-buf", "1")
+				a, b, c = ExecCommand(opt.GetFileMover(), "-cmd", operation, "-src", from_str, "-lang", opt.GetLanguage()) //, "-dst", "/", "-buf", "1")
 			}
 			Prln(a + " # " + b + " # " + c)
 		} else {

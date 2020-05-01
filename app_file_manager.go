@@ -3,16 +3,6 @@ package main
 //sudo apt-get install libgtk-3-dev
 //sudo apt-get install libcairo2-dev
 //sudo apt-get install libglib2.0-dev
-//https://github.com/gotk3/gotk3
-//https://github.com/golang/image
-
-//sudo apt install ffmpeg
-
-//xclip
-
-//ghex
-
-//godoc -http=":6060"
 
 import (
 	. "github.com/SilentGopherLnx/easygolang"
@@ -92,10 +82,13 @@ var upd_func func()
 var spinnerIcons *gtk.Spinner
 var spinnerFiles *gtk.Spinner
 
+var langs *LangArr
+
 func init() {
 
 	RuntimeLockOSThread()
 	AboutVersion(AppVersion())
+	langs = InitLang(FolderPathEndSlash(FolderLocation_App()+"localization") + "translation_manager.cfg")
 	InitOptions()
 	ZOOM_SIZE = opt.GetZoom()
 
@@ -170,12 +163,12 @@ func main() {
 	gInpSearch.SetText("")
 	gInpSearch.SetHExpand(true)
 	//gInpSearch.SetHAlign(gtk.ALIGN_FILL)
-	gInpSearch.SetPlaceholderText("search:")
+	gInpSearch.SetPlaceholderText(langs.GetStr("main_search") + ":")
 	gInpSearch.Connect("button-press-event", func() {
 		gInpSearch.SetCanFocus(true)
 	})
 
-	gBtnUp, _ = gtk.ButtonNewWithLabel("Up")
+	gBtnUp, _ = gtk.ButtonNewWithLabel(langs.GetStr("main_up"))
 	//gBtnUp.SetProperty("background-color", "red")
 	//img1 := GTK_Image_From_File(appdir+"gui/button_up.png", "png")
 	img1 := GTK_Image_From_Name("go-up", gtk.ICON_SIZE_BUTTON)
@@ -195,7 +188,7 @@ func main() {
 		listFiles(gGFiles, path, true, true)
 	}
 
-	gBtnBack, _ = gtk.ButtonNewWithLabel("Back")
+	gBtnBack, _ = gtk.ButtonNewWithLabel(langs.GetStr("main_back"))
 	img_bk := GTK_Image_From_Name("go-previous", gtk.ICON_SIZE_BUTTON)
 	gBtnBack.SetImage(img_bk)
 	gBtnBack.SetProperty("always-show-image", true)
@@ -210,7 +203,7 @@ func main() {
 	})
 	gBtnBack.SetCanFocus(false)
 
-	gBtnForward, _ = gtk.ButtonNewWithLabel("Forward")
+	gBtnForward, _ = gtk.ButtonNewWithLabel(langs.GetStr("main_forward"))
 	img_fw := GTK_Image_From_Name("go-next", gtk.ICON_SIZE_BUTTON)
 	gBtnForward.SetImage(img_fw)
 	gBtnForward.SetProperty("always-show-image", true)
@@ -225,7 +218,7 @@ func main() {
 	})
 	gBtnForward.SetCanFocus(false)
 
-	gBtnRefresh, _ = gtk.ButtonNewWithLabel("Reload/Search")
+	gBtnRefresh, _ = gtk.ButtonNewWithLabel(langs.GetStr("main_reload"))
 	//img2 := GTK_Image_From_File(appdir+"gui/button_reload.png", "png")
 	img2 := GTK_Image_From_Name("view-refresh", gtk.ICON_SIZE_BUTTON)
 	gBtnRefresh.SetImage(img2)
@@ -471,9 +464,8 @@ func main() {
 
 	win.Connect("key-press-event", func(win *gtk.Window, ev *gdk.Event) {
 		if !gInpPath.IsFocus() && !gInpSearch.IsFocus() { //gGFiles.HasVisibleFocus() || gGFiles.HasFocus() || gGFiles.IsFocus() {
-			key, state := GTK_KeyboardKeyOfEvent(ev)
-			key, state = GTK_KeyboardTranslateLayoutEnglish(key, state)
-			GTK_CopyPasteDnd_SetWindowKeyPressed(path, key, state)
+			key, state, hkey := GTK_KeyboardKeyOfEvent(ev)
+			GTK_CopyPasteDnd_SetWindowKeyPressed(path, key, state, hkey)
 		}
 	})
 	// win.Connect("key-release-event", func(win *gtk.Window, ev *gdk.Event) {
@@ -545,7 +537,7 @@ func upd_title() {
 	search := ""
 	s, _ := gInpSearch.GetText()
 	if s != "" {
-		search = "Search: [" + s + "] /"
+		search = langs.GetStr("main_search") + ": [" + s + "] /"
 	}
 	win.SetTitle(search + folder_name + " " + sudo + " GopherFileManager")
 	if top_current_menu != nil && path != nil {
@@ -556,4 +548,37 @@ func upd_title() {
 
 func OpenManager(path_to_folder string) {
 	go ExecCommandBash("" + ExecQuote(AppRunArgs()[0]) + " " + ExecQuote(FolderPathEndSlash(path_to_folder)) + B2S(win.IsMaximized(), " -max", ""))
+}
+
+func GetLastVerison(url string) (bool, string) {
+	txt, err := NetReadUrlText(url)
+	//txt, _ = FileTextRead(".........../src/github.com/SilentGopherLnx/GopherFileManager/version.go")
+	//txt = "\n\nconst app_version_manager = \"0.1.14\"\n\n"
+	if err != nil {
+		return false, err.Error()
+	}
+	arr := StringSplitLines(txt)
+	for j := 0; j < len(arr); j++ {
+		if StringFind(arr[j], "const app_version_") == 1 {
+			vstr := StringSplit(arr[j], "\"")
+			if len(vstr) >= 2 {
+				return true, vstr[1]
+			}
+		}
+	}
+	return false, "No version file on url"
+}
+
+func AppVersion_Mover(path string) string {
+	a, b, c := ExecCommand(path, "-v")
+	if StringLength(b) == 0 && StringLength(c) == 0 {
+		v := StringSplitLines(a)
+		if len(v) > 0 {
+			return v[0]
+		} else {
+			return "Not installed?"
+		}
+	} else {
+		return "Not installed? " + a + b + c
+	}
 }

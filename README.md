@@ -16,7 +16,7 @@ Source code is so bad now. It maybe will fix it later... Look here for executabl
 more screenshoots:
 > https://github.com/SilentGopherLnx/screenshots_and_binaries/tree/master/SCREENS_GopherFileManagerFileMoverGui
 
-# Dependencies for GOPATH:
+# Dependencies for GOPATH (can be downloaded by "go get"):
 1) Golang **GTK3** lib
 https://github.com/gotk3/gotk3
 also for gtk:
@@ -41,7 +41,7 @@ https://github.com/SilentGopherLnx/easygolang
 - https://github.com/disintegration/imageorient
 - https://github.com/disintegration/gift
 
-# Dependencies of PROGRAMS:
+# Dependencies of PROGRAMS (download by yourself!):
 1) Compiled version of my **"FileMoverGui"** written on golang too
 https://github.com/SilentGopherLnx/FileMoverGui
 
@@ -56,11 +56,11 @@ https://github.com/SilentGopherLnx/FileMoverGui
 2) df, lsblk, mount, ls - base commands for disks list
 3) xdg-open, xdg-mime - file type system associations
 4) **xclip** - for copy-paste clipboard
-5) nmblookup - for scanning network for samba servers
+5) avahi-browse - for scanning network for samba servers
 6) udevadm - for usb devices names (mtp protocol)
 
 # Status:
-App is under development and not versionized (you can see version if run with one argument "-v")
+App is under development and looks freaky
 
 **Not all functions are implemented and realised as planned!** need to do:
 1) "hard-to-do":
@@ -85,10 +85,18 @@ App is under development and not versionized (you can see version if run with on
 - 0.2.0 - added multiple select files by mouse + hotkeys (Ctrl+C,Ctrl+V,Del)
 - 0.2.1 - hotkeys F2,F5,Ctrl+A; info for multiseleced files; copy folder near itself
 - 0.2.2 - new cache method, exif orientation, paste into in menu, russian keyboard shortcuts fix
+<<<<<<< HEAD
+- 0.3.0 - async file list loading! searching files! network listing! movie files length on icon
+- 0.3.1 - smb mount, path history, search results menus
+- 0.3.2 - mouse selecting with Ctrl button, fixing unnecessary menu's bugs
+- **0.3.3** - fixing for install and compile from source code by **go get**
+- **0.4.0** - multi-language support(+russian), checking for new verison button, fix for latest gtk release, fixing for multi-language keyboard hotkeys (Ctrl+C,Ctrl+X,Ctrl+V),renaming gialog moved to helper app
+=======
 - **0.3.0** - async file list loading! searching files! network listing! movie files length on icon
 - **0.3.1** - smb mount, path history, search results menus
 - **0.3.2** - mouse selecting with Ctrl button, fixing unnecessary menu's bugs
 - **0.3.3** - fixing for installing by go get
+>>>>>>> 1ab762b127d21020fc00111b712aa79781f8dee7
 
 # Platform & License:
 **Only Linux!** Tested mostly on amd64 on Cinnamon desktop (Linux Mint 19).

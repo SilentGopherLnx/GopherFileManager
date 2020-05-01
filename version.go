@@ -1,7 +1,9 @@
 package main
 
+const app_version_manager = "0.4.0" // for automatc update check
+
 func AppVersion() string {
-	return "0.3.3" //manager
+	return app_version_manager
 }
 
 func AppAuthor() string {
@@ -24,4 +26,12 @@ func AppAboutMore() string {
 		"sudo apt-get install ffmpeg" +
 		"\n" +
 		"sudo apt-get install smbclient"
+}
+
+func UrlLastVerison_Manager() string {
+	return "https://raw.githubusercontent.com/SilentGopherLnx/GopherFileManager/master/version.go"
+}
+
+func UrlLastVerison_Mover() string {
+	return "https://raw.githubusercontent.com/SilentGopherLnx/FileMoverGUI/master/version.go"
 }
