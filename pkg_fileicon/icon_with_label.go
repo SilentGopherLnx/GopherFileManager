@@ -21,6 +21,8 @@ const BACK_GRAY_HIDDEN float64 = 0.9
 
 const BORDER_SIZE = 8
 
+const GUI_PATH = "gui/"
+
 // //get the icon theme and lookup the icon we want by name, here at a size of 64px
 // var info = Gtk.IconTheme.get_default ().lookup_icon ("view-refresh-symbolic", 64, 0);
 // //now load the icon as a symbolic with a color set in the brackets as RGBA, here as plain red
@@ -31,19 +33,19 @@ const BORDER_SIZE = 8
 
 func init() {
 	appdir := FolderLocation_App()
-	bb, _ := FileBytesRead(appdir + "gui/emblem_loading.png")
+	bb, _ := FileBytesRead(appdir + GUI_PATH + "emblem_loading.png")
 	pixbuf_loading = GTK_PixBuf_From_Bytes(bb, "png")
 
-	bb, _ = FileBytesRead(appdir + "gui/emblem_loading_error.png")
+	bb, _ = FileBytesRead(appdir + GUI_PATH + "emblem_loading_error.png")
 	pixbuf_loading_err = GTK_PixBuf_From_Bytes(bb, "png")
 
-	bb, _ = FileBytesRead(appdir + "gui/emblem_link.png")
+	bb, _ = FileBytesRead(appdir + GUI_PATH + "emblem_link.png")
 	pixbuf_link = GTK_PixBuf_From_Bytes(bb, "png")
 
-	bb, _ = FileBytesRead(appdir + "gui/emblem_unreadable.png")
+	bb, _ = FileBytesRead(appdir + GUI_PATH + "emblem_unreadable.png")
 	pixbuf_notread = GTK_PixBuf_From_Bytes(bb, "png")
 
-	bb, _ = FileBytesRead(appdir + "gui/emblem_mount.png")
+	bb, _ = FileBytesRead(appdir + GUI_PATH + "emblem_mount.png")
 	pixbuf_mount = GTK_PixBuf_From_Bytes(bb, "png")
 
 	gr := uint8(RoundF(float64(255) * BACK_GRAY_HIDDEN))
@@ -87,17 +89,20 @@ type FileIconBlock struct {
 	fpath string
 	fname string
 
-	mime_sys string
-	mime_app string
-	app_open string
 	isdir    bool
 	isapp    bool
 	islink   bool
 	ishidden bool
+	size     int64
+
 	//rwx      int
+
+	mime_sys string
+	mime_app string
+	app_open string
 }
 
-func NewFileIconBlock(filepath string, filename string, wid int, isdir bool, islink bool, notread bool, ismount bool, strinfo string, zoom_init int) *FileIconBlock {
+func NewFileIconBlock(filepath string, filename string, wid int, isdir bool, islink bool, notread bool, ismount bool, strinfo string, zoom_init int, size int64) *FileIconBlock {
 	b2 := BORDER_SIZE / 2
 	isHidden := StringPart(filename, 1, 1) == "."
 
@@ -250,6 +255,7 @@ func NewFileIconBlock(filepath string, filename string, wid int, isdir bool, isl
 		ishidden: isHidden,
 		isdir:    isdir,
 		islink:   islink,
+		size:     size,
 	}
 	block.SetWidth(wid)
 	return block
@@ -257,6 +263,10 @@ func NewFileIconBlock(filepath string, filename string, wid int, isdir bool, isl
 
 func (i *FileIconBlock) GetFileName() string {
 	return i.fname
+}
+
+func (i *FileIconBlock) GetSizeBytes() int64 {
+	return i.size
 }
 
 func (i *FileIconBlock) IsDir() bool {

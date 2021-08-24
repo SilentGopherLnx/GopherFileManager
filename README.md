@@ -1,7 +1,7 @@
 # What is this?
 **GopherFileManager** is file manager for Linux with GTK3 user interface written on Golang
 
-I wanted to create **Linux file manager with "folder trumbnails"** like in Dolpin file manager
+I wanted to create **Linux file manager with "folder trumbnails"** like in Dolphin file manager
 
 Source code is so bad now. It maybe will fix it later... Look here for executable file https://github.com/SilentGopherLnx/screenshots_and_binaries/tree/master/BIN64_GopherFileManagerFileMoverGui
 
@@ -17,7 +17,7 @@ more screenshoots:
 > https://github.com/SilentGopherLnx/screenshots_and_binaries/tree/master/SCREENS_GopherFileManagerFileMoverGui
 
 # Dependencies for GOPATH (can be downloaded by "go get"):
-1) Golang **GTK3** lib
+1) Golang **GTK3** lib 0.6.1
 https://github.com/gotk3/gotk3
 also for gtk:
 > sudo apt-get install libgtk-3-dev
@@ -90,9 +90,11 @@ App is under development and looks freaky
 - 0.3.2 - mouse selecting with Ctrl button, fixing unnecessary menu's bugs
 - **0.3.3** - fixing for install and compile from source code by **go get**
 - **0.4.0** - multi-language support(+russian), checking for new verison button, fix for latest gtk release, fixing for multi-language keyboard hotkeys (Ctrl+C,Ctrl+X,Ctrl+V),renaming gialog moved to helper app
+- **0.4.1** - fix for gotk3 0.6.1 (was uncompileable in selectionData) and golang 1.17 (url parsing works differently); add: count of files on folder preview, sort files by size, option to select preview update time (always-never) and app for rename dialog
 
 # Platform & License:
-**Only Linux!** Tested mostly on amd64 on Cinnamon desktop (Linux Mint 19).
+**Only Linux!** Tested mostly on amd64 on Cinnamon desktop (Linux Mint ~~19~~20.2). 
+GTK 3.24.20
 Also tested once on Gentoo 17 (gnome 3) amd64.
 
 Windows/MasOS support is NOT planned

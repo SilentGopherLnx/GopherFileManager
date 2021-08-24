@@ -18,16 +18,17 @@ import (
 type IconUpdateable struct {
 	widget         *FileIconBlock
 	pixbuf_cache   *gdk.Pixbuf // loaded old cache of preview
-	pixbuf_preview *gdk.Pixbuf // loaded preview
+	pixbuf_preview *gdk.Pixbuf // loaded preview new
 	fullname       string
 	fname          string
 	tfile          string
 	basic_mode     bool //check is executable
 	folder         bool
 	//oldbuf         bool //have loaded old preview
-	success_preview bool
-	req             int64
-	f               *LinuxFileReport
+	success_preview      bool
+	req                  int64
+	f                    *LinuxFileReport
+	skip_if_cache_loaded bool
 }
 
 var arr_blocks []*FileIconBlock = []*FileIconBlock{}
@@ -86,7 +87,7 @@ func listFiles(g *gtk.Grid, lpath *LinuxPath, scroll_reset bool, save_history bo
 	async = NewFileListAsync_DetectType(path, StringTrim(search), 5, 0.2)
 	if async == nil {
 		Prln("!!! async=nil")
-		iconwithlabel := NewFileIconBlock(lpath.GetReal(), "ERROR!", 400, false, false, false, false, "???", ZOOM_SIZE)
+		iconwithlabel := NewFileIconBlock(lpath.GetReal(), "ERROR!", 400, false, false, false, false, "???", ZOOM_SIZE, 0)
 		arr_blocks = append(arr_blocks, iconwithlabel)
 		g.Attach(iconwithlabel.GetWidgetMain(), 1, 1, 1, 1)
 		g.ShowAll()
@@ -167,7 +168,7 @@ func AddFilesToList(g *gtk.Grid, files []*LinuxFileReport, lpath2 string, req in
 		}
 
 		ismount := LinuxFolderIsMountPoint(mountlist, lpath2+fname) || SMB_IsMount(path, fname, mountlist)
-		iconwithlabel := NewFileIconBlock(lpath2, fname, icon_block_max_w, isdir, islink, not_read, ismount, inf, ZOOM_SIZE)
+		iconwithlabel := NewFileIconBlock(lpath2, fname, icon_block_max_w, isdir, islink, not_read, ismount, inf, ZOOM_SIZE, f.SizeBytes)
 
 		if isdir {
 			if filepathfinal == opt.GetHashFolder() {
@@ -353,6 +354,8 @@ func AddFilesToList(g *gtk.Grid, files []*LinuxFileReport, lpath2 string, req in
 	go func() {
 		SleepMS(5)
 
+		// loading cached preview
+
 		if with_cache_preview {
 			SortArray(arr_render, func(i, j int) bool {
 				if arr_render[i].folder != arr_render[j].folder {
@@ -380,6 +383,8 @@ func AddFilesToList(g *gtk.Grid, files []*LinuxFileReport, lpath2 string, req in
 			}
 		}
 
+		// loading new preview directly
+
 		SortArray(arr_render, func(i, j int) bool {
 			pixbuf_cache1 := arr_render[i].pixbuf_cache != nil // loaded
 			pixbuf_cache2 := arr_render[j].pixbuf_cache != nil
@@ -399,11 +404,16 @@ func AddFilesToList(g *gtk.Grid, files []*LinuxFileReport, lpath2 string, req in
 		for j := 0; j < len(arr_render); j++ {
 			if req == req_id.Get() {
 				arr_render[j].req = req
+				need_update_by_timeout := opt.GetPreviewUpdateTime() > -1
+				if arr_render[j].pixbuf_cache != nil || need_update_by_timeout {
+					arr_render[j].skip_if_cache_loaded = true
+				}
 				if single_thread_protocol {
 					icon_chan1 <- arr_render[j]
 				} else {
 					icon_chanN <- arr_render[j]
 				}
+
 			}
 			RuntimeGosched()
 		}
@@ -425,6 +435,13 @@ func resort_and_show() {
 			type2 := FileExtension(name2)
 			if type1 != type2 {
 				return XOR(type1 < type2, sort_reverse)
+			}
+		}
+		if sort_mode == 2 {
+			size1 := arr_blocks[i].GetSizeBytes()
+			size2 := arr_blocks[j].GetSizeBytes()
+			if size1 != size2 {
+				return XOR(size1 < size2, sort_reverse)
 			}
 		}
 		if name1 != name2 {

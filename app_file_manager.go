@@ -116,6 +116,7 @@ func main() {
 	defer fswatcher.Close()
 
 	gtk.Init(nil)
+	Prln("gtk_version_get:" + GetGolangVersion())
 
 	var err error
 	win, err = gtk.WindowNew(gtk.WINDOW_TOPLEVEL)
@@ -145,7 +146,7 @@ func main() {
 	})
 
 	appdir := FolderLocation_App()
-	win.SetIconFromFile(appdir + "gui/icon.png")
+	win.SetIconFromFile(appdir + GUI_PATH + "icon.png")
 
 	// ================
 

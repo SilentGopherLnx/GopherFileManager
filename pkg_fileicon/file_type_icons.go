@@ -104,6 +104,11 @@ func Make_IconSetOfZoom(zoom int) *IconSetOfZoom {
 	iconset.FolderImageRGBA = ImageDecodeRGBA(folder_big, colorT)
 	if InterfaceNil(iconset.FolderImageRGBA) {
 		iconset.FolderImageRGBA = image.NewRGBA(image.Rect(0, 0, zoom, zoom))
+	} else {
+		if iconset.FolderImageRGBA.Bounds().Max.X != zoom_small || iconset.FolderImageRGBA.Bounds().Max.Y != zoom_small {
+			image2 := ImageResizeNearest(iconset.FolderImageRGBA, zoom*2, zoom*2)
+			iconset.FolderImageRGBA = ImageResizeHalfNice(image2)
+		}
 	}
 
 	icon_set_big_small(iconset, zoom, zoom_small, PREFIX_DRAWONME+FILE_TYPE_FOLDER_HASH, &colorT)
@@ -126,13 +131,29 @@ func icon_set_big_small(iconset *IconSetOfZoom, zoom int, zoom_small int, name s
 	bytes_big := try_load_image_of_zoom(appdir+MIME_PATH, 0, zoom, "/"+name+".png")
 	bytes_small := try_load_image_of_zoom(appdir+MIME_PATH, 1, zoom_small, "/"+name+".png")
 
-	pixbuf := GTK_PixBuf_From_Bytes(bytes_big, "png")
-	if pixbuf != nil && (pixbuf.GetWidth() != zoom || pixbuf.GetHeight() != zoom) {
-		pixbuf, _ = ResizePixelBuffer(pixbuf, zoom, gdk.INTERP_BILINEAR)
+	interp := gdk.INTERP_BILINEAR
+
+	if bytes_big == nil && bytes_small != nil {
+		bytes_big = bytes_small
+	}
+	if bytes_big != nil && bytes_small == nil {
+		bytes_small = bytes_big
+	}
+	if bytes_big == nil && bytes_small == nil {
+		if name == PREFIX_DRAWONME+FILE_TYPE_FOLDER {
+			bytes_big = GetImage_OneYellowPixel()
+			//interp = gdk.INTERP_NEAREST
+		}
+		bytes_small = bytes_big
 	}
 
+	pixbuf := GTK_PixBuf_From_Bytes(bytes_big, "png")
+	if pixbuf != nil && (pixbuf.GetWidth() != zoom || pixbuf.GetHeight() != zoom) {
+		pixbuf, _ = ResizePixelBuffer(pixbuf, zoom, interp)
+	}
 	image := ImageDecode(bytes_small)
-	if pixbuf != nil && (pixbuf.GetWidth() != zoom_small || pixbuf.GetHeight() != zoom_small) {
+	//if pixbuf != nil && (pixbuf.GetWidth() != zoom_small || pixbuf.GetHeight() != zoom_small) {
+	if image != nil && (image.Bounds().Max.X != zoom_small || image.Bounds().Max.Y != zoom_small) {
 		image2 := ImageResizeNearest(image, zoom_small*2, zoom_small*2)
 		image = ImageResizeHalfNice(image2)
 	}
@@ -222,4 +243,9 @@ func ResizePixelBuffer(pixbuf *gdk.Pixbuf, zoom_size int, interp gdk.InterpType)
 		return pixbuf, true
 	}
 	return nil, false
+}
+
+func GetImage_OneYellowPixel() *[]byte {
+	var imgdata = []byte{137, 80, 78, 71, 13, 10, 26, 10, 0, 0, 0, 13, 73, 72, 68, 82, 0, 0, 0, 1, 0, 0, 0, 1, 8, 6, 0, 0, 0, 31, 21, 196, 137, 0, 0, 0, 4, 115, 66, 73, 84, 8, 8, 8, 8, 124, 8, 100, 136, 0, 0, 0, 13, 73, 68, 65, 84, 8, 153, 99, 248, 255, 178, 254, 63, 0, 8, 185, 3, 103, 200, 30, 122, 107, 0, 0, 0, 0, 73, 69, 78, 68, 174, 66, 96, 130}
+	return &imgdata
 }

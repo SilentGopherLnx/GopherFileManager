@@ -5,20 +5,29 @@ import (
 	. "github.com/SilentGopherLnx/easygolang/easygtk"
 	. "github.com/SilentGopherLnx/easygolang/easylinux"
 
+	. "github.com/SilentGopherLnx/GopherFileManager/pkg_fileicon"
 	. "github.com/SilentGopherLnx/GopherFileManager/pkg_filetools"
 
-	//	"github.com/gotk3/gotk3/gdk"
+	"github.com/gotk3/gotk3/gdk"
 	"github.com/gotk3/gotk3/gtk"
 )
 
 func Dialog_FileRename(w *gtk.Window, fpath string, fname_old string, upd func()) {
+	if opt.GetRenameByThisApp() {
+		Dialog_FileRename_ThisApp(w, fpath, fname_old, upd)
+	} else {
+		Dialog_FileRename_ExternalApp(w, fpath, fname_old, upd)
+	}
+}
+
+func Dialog_FileRename_ExternalApp(w *gtk.Window, fpath string, fname_old string, upd func()) {
 	file1 := NewLinuxPath(false) //??
 	file1.SetReal(FolderPathEndSlash(fpath) + fname_old)
 	Prln("rename: " + file1.GetUrl())
 	RunFileOperaion([]*LinuxPath{file1}, nil, OPER_RENAME)
 }
 
-/*func Dialog_FileRename(w *gtk.Window, fpath string, fname_old string, upd func()) {
+func Dialog_FileRename_ThisApp(w *gtk.Window, fpath string, fname_old string, upd func()) {
 	fname_prev := FilePathEndSlashRemove(fname_old)
 	dial, box := GTK_Dialog(w, "Rename: "+fname_prev)
 	dial.SetDefaultSize(350, 90)
@@ -84,7 +93,7 @@ func Dialog_FileRename(w *gtk.Window, fpath string, fname_old string, upd func()
 	inpname.SelectRegion(0, ind)
 	dial.Run()
 	dial.Close()
-}*/
+}
 
 func Dialog_FileInfo(w *gtk.Window, fpath string, fnames []string) {
 	winw, winh := 300, 300
@@ -100,7 +109,7 @@ func Dialog_FileInfo(w *gtk.Window, fpath string, fnames []string) {
 		win2.SetDefaultSize(winw, winh)
 		win2.SetPosition(gtk.WIN_POS_CENTER)
 		//win2.SetTransientFor(w)
-		win2.SetIconFromFile(FolderLocation_App() + "gui/icon.png")
+		win2.SetIconFromFile(FolderLocation_App() + GUI_PATH + "icon.png")
 		//win2.SetModal(true)
 		//win2.SetKeepAbove(true)
 

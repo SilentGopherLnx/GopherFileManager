@@ -77,7 +77,11 @@ func GTKMenu_CurrentFolder(menu *gtk.Menu, folderpath LinuxPath, search string) 
 		sort_mode = 1
 		resort_and_show()
 	})
-	GTK_MenuItem(submenu_sort, langs.GetStr("cmd_sort_size")+" "+B2S(sort_mode == 2, "(v)", ""), nil)
+	GTK_MenuItem(submenu_sort, langs.GetStr("cmd_sort_size")+" "+B2S(sort_mode == 2, "(v)", ""), func() {
+		sort_mode = 2
+		resort_and_show()
+	})
+	GTK_MenuItem(submenu_sort, "date modified"+" "+B2S(sort_mode == 3, "(v)", ""), nil)
 	GTK_MenuSeparator(menu)
 	GTK_MenuItem(menu, langs.GetStr("cmd_files_info"), func() {
 		Dialog_FileInfo(win, LinuxFileGetParent(fp), []string{FolderPathEndSlash(LinuxFileNameFromPath(fp))})
@@ -127,6 +131,17 @@ func GTKMenu_File(menu *gtk.Menu, fpath string, fname string, isdir bool, isapp 
 	}
 
 	GTK_MenuSeparator(rightmenu)
+	if isdir {
+		paste_list, _ := LinuxClipBoard_PasteFiles()
+		var func_paste func() = nil
+		if len(paste_list) > 0 {
+			func_paste = func() {
+				//Prln("[" + fpath2 + fname + "]")
+				GTK_CopyPasteDnd_Paste(FolderPathEndSlash(fpath2 + fname))
+			}
+		}
+		GTK_MenuItem(rightmenu, langs.GetStr("cmd_folder_paste_into")+" "+I2S(len(paste_list))+langs.GetStr("cmd_of_objects"), func_paste) // (Ctrl+V)
+	}
 	GTK_MenuItem(rightmenu, langs.GetStr("cmd_file_cut")+" (Ctrl+X)", func() {
 		file1 := NewLinuxPath(false) //??
 		file1.SetReal(fpath2 + fname)
@@ -156,17 +171,6 @@ func GTKMenu_File(menu *gtk.Menu, fpath string, fname string, isdir bool, isapp 
 	// //lbl := wi.(gtk.accel )
 
 	GTK_MenuSeparator(rightmenu)
-	if isdir {
-		paste_list, _ := LinuxClipBoard_PasteFiles()
-		var func_paste func() = nil
-		if len(paste_list) > 0 {
-			func_paste = func() {
-				//Prln("[" + fpath2 + fname + "]")
-				GTK_CopyPasteDnd_Paste(FolderPathEndSlash(fpath2 + fname))
-			}
-		}
-		GTK_MenuItem(rightmenu, langs.GetStr("cmd_folder_paste_into")+" "+I2S(len(paste_list))+langs.GetStr("cmd_of_objects"), func_paste) // (Ctrl+V)
-	}
 	GTK_MenuItem(rightmenu, langs.GetStr("cmd_file_rename")+" (F2)", func() {
 		Dialog_FileRename(win, fpath2, fname, func() {
 			lp := NewLinuxPath(true)

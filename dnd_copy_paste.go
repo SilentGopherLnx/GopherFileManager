@@ -100,41 +100,37 @@ func GTK_CopyPasteDnd_Paste(folderpath string) {
 	// }
 }
 
-/*interface {
-	DragDestSet(gtk.DestDefaults, []gtk.TargetEntry, gdk.DragAction)
-	Connect(string, interface{}, ...interface{}) (glib.SignalHandle, error)
-}*/
+//for whole app
 func GTK_CopyPasteDnd_SetAppDest(w *gtk.Widget) {
 	t_uri, _ := gtk.TargetEntryNew("text/uri-list", gtk.TARGET_OTHER_APP, 0)
 	w.DragDestSet(gtk.DEST_DEFAULT_ALL, []gtk.TargetEntry{*t_uri}, gdk.ACTION_COPY)
-	w.Connect("drag-data-received", func(g gtk.IWidget, ctx *gdk.DragContext, x int, y int, data_pointer uintptr, info uint, _ uint) {
-		dnd_str := string(gtk.GetData(data_pointer))
+	w.Connect("drag-data-received", func(g gtk.IWidget, ctx *gdk.DragContext, x int, y int, selData *gtk.SelectionData, info uint, _ uint) { //data_pointer uintptr
+		//dnd_str := string(gtk.GetData(data_pointer))// gotk3 lib chanded this
+		dnd_str := string(selData.GetData())
 
 		//space.SetText(dnd_str)
 		Prln("d&d: received from another app: " + dnd_str)
 
-		oper := OPER_MOVE
-		dnd_arr := StringSplitLines(dnd_str)
-		from_url := []*LinuxPath{}
-		for j := 0; j < len(dnd_arr); j++ {
-			tpath := NewLinuxPath(false) //??
-			tpath.SetUrl(dnd_arr[j])
-			from_url = append(from_url, tpath)
+		if dnd_str != "" {
+			oper := OPER_MOVE
+			dnd_arr := StringSplitLines(dnd_str)
+			from_url := []*LinuxPath{}
+			for j := 0; j < len(dnd_arr); j++ {
+				tpath := NewLinuxPath(false) //??
+				tpath.SetUrl(dnd_arr[j])
+				from_url = append(from_url, tpath)
+			}
+			RunFileOperaion(from_url, path, oper)
 		}
-		RunFileOperaion(from_url, path, oper)
 	})
+
 }
 
-/*interface {
-	DragSourceSet(gdk.ModifierType, []gtk.TargetEntry, gdk.DragAction)
-	Connect(string, interface{}, ...interface{}) (glib.SignalHandle, error)
-}*/
 func GTK_CopyPasteDnd_SetIconSource(w *gtk.Widget, icon *gtk.Image, getter func() []*LinuxPath) {
-
 	t_uri_same, _ := gtk.TargetEntryNew("text/uri-list", gtk.TARGET_SAME_APP, 0)
 	t_uri_other, _ := gtk.TargetEntryNew("text/uri-list", gtk.TARGET_OTHER_APP, 0)
 	t_uris := []gtk.TargetEntry{*t_uri_same, *t_uri_other}
-	w.DragSourceSet(gdk.GDK_BUTTON1_MASK, t_uris, gdk.ACTION_COPY) //gdk.ACTION_MOVE
+	w.DragSourceSet(gdk.BUTTON1_MASK, t_uris, gdk.ACTION_COPY) //gdk.ACTION_MOVE
 	w.Connect("drag-begin", func(g gtk.IWidget, ctx *gdk.DragContext) {
 		Prln("d&d: drag-begin")
 		pixbuf := icon.GetPixbuf()
@@ -142,7 +138,7 @@ func GTK_CopyPasteDnd_SetIconSource(w *gtk.Widget, icon *gtk.Image, getter func(
 		h := pixbuf.GetHeight()
 		gtk.DragSetIconPixbuf(ctx, pixbuf, w/2, h/2)
 	})
-	w.Connect("drag-data-get", func(g gtk.IWidget, ctx *gdk.DragContext, data_pointer uintptr, _ uint, _ uint) {
+	w.Connect("drag-data-get", func(g gtk.IWidget, ctx *gdk.DragContext, selData *gtk.SelectionData, _ uint, _ uint) { //data_pointer uintptr
 		Prln("d&d: drag-data-get")
 		files := getter()
 		cmd := ""
@@ -150,22 +146,20 @@ func GTK_CopyPasteDnd_SetIconSource(w *gtk.Widget, icon *gtk.Image, getter func(
 			cmd = cmd + files[j].GetUrl() + "\n"
 		}
 		//Prln(cmd)
-		gtk.SetData(data_pointer, gdk.SELECTION_TYPE_STRING, []byte(cmd))
+		//gtk.SetData(data_pointer, gdk.SELECTION_TYPE_STRING, []byte(cmd)) // gotk3 lib chanded this
+		selData.SetData(gdk.SELECTION_TYPE_STRING, []byte(cmd))
 	})
 }
 
-/*interface {
-	DragDestSet(gtk.DestDefaults, []gtk.TargetEntry, gdk.DragAction)
-	Connect(string, interface{}, ...interface{}) (glib.SignalHandle, error)
-}*/
+//for each folder
 func GTK_CopyPasteDnd_SetFolderDest(w *gtk.Widget, dest *LinuxPath) {
-
 	t_uri_same, _ := gtk.TargetEntryNew("text/uri-list", gtk.TARGET_SAME_APP, 0)
 	t_uri_other, _ := gtk.TargetEntryNew("text/uri-list", gtk.TARGET_OTHER_APP, 0)
 	t_uris := []gtk.TargetEntry{*t_uri_same, *t_uri_other}
 	w.DragDestSet(gtk.DEST_DEFAULT_ALL, t_uris, gdk.ACTION_COPY)
-	w.Connect("drag-data-received", func(g gtk.IWidget, ctx *gdk.DragContext, x int, y int, data_pointer uintptr, _ uint, _ uint) {
-		dnd_str := string(gtk.GetData(data_pointer))
+	w.Connect("drag-data-received", func(g gtk.IWidget, ctx *gdk.DragContext, x int, y int, selData *gtk.SelectionData, _ uint, _ uint) { //data_pointer uintptr
+		//dnd_str := string(gtk.GetData(data_pointer))// gotk3 lib chanded this
+		dnd_str := string(selData.GetData())
 		oper := OPER_MOVE
 		dnd_arr := StringSplitLines(dnd_str)
 		from_url := []*LinuxPath{}

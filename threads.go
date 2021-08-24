@@ -94,24 +94,36 @@ func Thread_Main() {
 }
 
 func Thread_Icon(icon_chan chan *IconUpdateable, qu *SyncQueue, thread_id int) { // qu *queue.Queue
+	Prln("thread #" + I2S(thread_id) + " has go-id: " + I2S(GoId()))
 	for {
 		msg := <-icon_chan
 		num_works.Add(1)
 		if req_id.Get() == msg.req && GTK_WidgetExist(msg.widget.GetIcon()) {
 			//var pixbuf_preview *gdk.Pixbuf
 			var ok = false
+			var skip = false
+			if msg.skip_if_cache_loaded && msg.pixbuf_cache != nil {
+				skip = true
+
+			}
 			if msg.folder {
 				//if !msg.basic_mode {
-				msg.pixbuf_preview, ok = GetPixBufGTK_Folder(msg.fullname, ZOOM_SIZE, msg.basic_mode, qu, nil, msg.req) //, msg)
+				msg.pixbuf_preview, ok = GetPixBufGTK_Folder(msg.fullname, ZOOM_SIZE, msg.basic_mode, qu, nil, msg.req, skip) //, msg)
 				//}
 			} else {
-				if StringInArray(msg.tfile, MIME_IMAGE) > -1 {
-					msg.pixbuf_preview, ok = GetPreview_ImagePixBuf(msg.fullname, ZOOM_SIZE)
-				}
-				if !msg.basic_mode && StringInArray(msg.tfile, MIME_VIDEO) > -1 {
-					msg.pixbuf_preview, ok = GetPreview_VideoPixBuf(msg.fullname, ZOOM_SIZE, nil, msg.req, true)
+				if skip {
+					msg.pixbuf_preview = msg.pixbuf_cache
+					ok = true
+				} else {
+					if StringInArray(msg.tfile, MIME_IMAGE) > -1 {
+						msg.pixbuf_preview, ok = GetPreview_ImagePixBuf(msg.fullname, ZOOM_SIZE)
+					}
+					if !msg.basic_mode && StringInArray(msg.tfile, MIME_VIDEO) > -1 {
+						msg.pixbuf_preview, ok = GetPreview_VideoPixBuf(msg.fullname, ZOOM_SIZE, nil, msg.req, true)
+					}
 				}
 			}
+
 			if ok {
 				msg.success_preview = true
 				qu.Append(msg)

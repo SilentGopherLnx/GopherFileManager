@@ -1,13 +1,13 @@
 package main
 
-const app_version_manager = "0.4.0" // for automatc update check
+const app_version_manager = "0.4.1" // for automatc update check
 
 func AppVersion() string {
 	return app_version_manager
 }
 
 func AppAuthor() string {
-	return "SilentGopherLnx (2019-2020)"
+	return "SilentGopherLnx (2019-2021)"
 }
 
 func AppMail() string {

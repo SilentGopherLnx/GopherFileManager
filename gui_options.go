@@ -33,6 +33,8 @@ const OPTIONS_INOTIFY_PERIOD = "inotify_period"
 const OPTIONS_SYMLINKS_EVAL = "symlinks_eval"
 const OPTIONS_EXIF_ROTATION = "exif_rotation"
 const OPTIONS_FOLDER_LIMIT = "folder_limit"
+const OPTIONS_PREVIEW_UPDATE_TIME = "preview_update_time"
+const OPTIONS_RENAME_BYTHISAPP = "renaming_thisapp"
 
 func InitOptions() {
 	if opt == nil {
@@ -69,10 +71,14 @@ func InitOptions() {
 	opt.st.AddRecord_Integer(502, OPTIONS_INOTIFY_PERIOD, 2, 1, 5, langs.GetStr("options_inotify"))
 	opt.st.AddRecord_Integer(503, OPTIONS_VIDEO_PREVIEW_PERCENT, 50, 1, 99, langs.GetStr("options_video_percent"))
 
-	opt.st.AddRecord_Integer(504, OPTIONS_FOLDER_LIMIT, 10, 2, 50, langs.GetStr("options_max_result"))
+	// !!!!!!!!!!!!!!!!!!!!! Fix language support!
+	opt.st.AddRecord_Array(504, OPTIONS_PREVIEW_UPDATE_TIME, "Always", []string{"Always", "Hour(Not ready)", "Day(Not ready)", "Month(Not ready)", "Never"}, "Preview update time")
+
+	opt.st.AddRecord_Integer(505, OPTIONS_FOLDER_LIMIT, 10, 2, 50, langs.GetStr("options_max_result"))
 
 	opt.st.AddRecord_Boolean(601, OPTIONS_SYMLINKS_EVAL, true, "Open symlinks as real path to folder")
 	opt.st.AddRecord_Boolean(602, OPTIONS_EXIF_ROTATION, true, "Use EXIF orientation tag for JPEG images")
+	opt.st.AddRecord_Boolean(603, OPTIONS_RENAME_BYTHISAPP, true, "Use this app for renaming (not external)")
 
 	opt.st.RecordsValues_Load(FolderLocation_App() + OPTIONS_FILE)
 	opt.st.RecordsValues_Save(FolderLocation_App() + OPTIONS_FILE)
@@ -152,6 +158,22 @@ func (o *OptionsContainer) GetExifRot() bool {
 
 func (o *OptionsContainer) GetFolderLimit() int {
 	return o.st.ValueGetInteger(OPTIONS_FOLDER_LIMIT) * 100
+}
+
+func (o *OptionsContainer) GetPreviewUpdateTime() int {
+	// !!!!!!!!!!!!!!!!!!!!! Fix language support!
+	z := o.st.ValueGetString(OPTIONS_PREVIEW_UPDATE_TIME)
+	if z == "Always" {
+		return 0
+	}
+	if z == "Never" {
+		return -1
+	}
+	return 1
+}
+
+func (o *OptionsContainer) GetRenameByThisApp() bool {
+	return o.st.ValueGetBoolean(OPTIONS_RENAME_BYTHISAPP)
 }
 
 func Dialog_Options(w *gtk.Window) {

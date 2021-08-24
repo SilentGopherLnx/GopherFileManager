@@ -257,7 +257,8 @@ func Linux_DisksGetMounted(local bool, remote bool) []*DiskPart {
 					crypt := false
 					if indp > 0 {
 						title = StringPart(f_name, indp+1, 0)
-						q, qerr := UrlQueryParse(StringReplace(StringReplace(title, ";", "#"), ",", ";"))
+						//q, qerr := UrlQueryParse(StringReplace(StringReplace(title, ";", "#"), ",", ";"))
+						q, qerr := UrlQueryParse(StringReplace(title, ",", "&"))
 						prot = StringDown(StringPart(f_name, 0, indp-1))
 						if StringFind(prot, "smb") == 1 {
 							prot = "SMB"
@@ -267,6 +268,8 @@ func Linux_DisksGetMounted(local bool, remote bool) []*DiskPart {
 								if len(share) > 0 {
 									title = "[" + share + "]"
 								}
+							} else {
+								//Prln("title=" + title)
 							}
 						}
 						if StringFind(prot, "dav") == 1 {

@@ -30,8 +30,11 @@ var MIME_IMAGE = []string{"jpg", "jpeg", "png", "gif", "webp", "ico", "bmp"}
 var MIME_VIDEO = []string{"mp4", "avi", "mkv", "mov", "mpg", "mpeg", "flv", "wmv", "webm", "3gp"}
 var MIME_PREVIEW = []string{}
 
+var colorText color.RGBA
+
 func init() {
 	MIME_PREVIEW = append(MIME_IMAGE, MIME_VIDEO...)
+	colorText = color.RGBA{200, 255, 255, 255}
 }
 
 func FileIsPreviewAbble(tfile string) bool {
@@ -110,7 +113,6 @@ func GetPreview_VideoPixBuf(filename string, zoom_size int, killchan chan *exec.
 func GetPreview_VideoImage(filename string, zoom_size int, killchan chan *exec.Cmd, req int64, save_hash bool) (image.Image, bool) {
 	gr := uint8(RoundF(float64(255) * BACK_GRAY_VISIBLE))
 	colorTransp := color.RGBA{gr, gr, gr, 0}
-	colorText := color.RGBA{200, 255, 255, 255}
 
 	zoom_max := Constant_ZoomMax()
 
@@ -156,6 +158,17 @@ func ImageText26x6(img *image.RGBA, x, y int, col color.RGBA, label string) {
 	}
 	d.DrawString(label)
 }
+
+/*func ImageText52x12(img *image.RGBA, x, y int, col color.RGBA, label string) {
+	point := fixed.Point52_12{fixed.Int52_12(x * 64), fixed.Point52_12((y + 10) * 64)}
+	d := &font.Drawer{
+		Dst:  img,
+		Src:  image.NewUniform(col),
+		Face: basicfont.Face7x13,
+		Dot:  point,
+	}
+	d.DrawString(label)
+}*/
 
 func GetPreview_ImagePixBuf(filename string, zoom_size int) (*gdk.Pixbuf, bool) {
 	ftype := FileExtension(filename)
@@ -307,7 +320,7 @@ func CachePreview_WriteImage(info *FileReport, zoom_size int, img image.Image, d
 	}
 }
 
-func GetPixBufGTK_Folder(folderpath string, zoom_size int, basic_mode bool, qu *SyncQueue, killchan chan *exec.Cmd, req int64) (*gdk.Pixbuf, bool) { // icon_msg *IconUpdateable
+func GetPixBufGTK_Folder(folderpath string, zoom_size int, basic_mode bool, qu *SyncQueue, killchan chan *exec.Cmd, req int64, skip_cached bool) (*gdk.Pixbuf, bool) { // icon_msg *IconUpdateable
 	folderpath2 := FolderPathEndSlash(folderpath)
 	imgRGBA := GetIcon_ImageFolder(zoom_size)
 	scale := zoom_size / 64
@@ -356,7 +369,7 @@ func GetPixBufGTK_Folder(folderpath string, zoom_size int, basic_mode bool, qu *
 		if iconfiles > 0 {
 			imgs2, mimetypes = best_file_icons(folderpath2, files, iconfiles, zoom_size, basic_mode)
 			if !basic_mode {
-				imgs2, changed = replace_mime_images(folderpath2, files, imgs2, mimetypes, zoom_size, killchan, req)
+				imgs2, changed = replace_mime_images(folderpath2, files, imgs2, mimetypes, zoom_size, killchan, req, skip_cached)
 			}
 			mimetypes[0] = mimetypes[0] //used for compile
 		}
@@ -368,6 +381,14 @@ func GetPixBufGTK_Folder(folderpath string, zoom_size int, basic_mode bool, qu *
 			if j == 0 && numdirs > icondirs && icondirs == 1 {
 				ImageAddOver(imgRGBA, imgs[0], xy[j][0]+scale*2, xy[j][1]+scale*3)
 			}
+		}
+
+		if numdirs > 2 {
+			ImageText26x6_Bold(imgRGBA, zoom_size/8, zoom_size*2/5, colorText, I2S(numdirs))
+			//ImageText52x12(imgRGBA, zoom_size/8, zoom_size*2/5, colorText, I2S(numdirs))
+		}
+		if numfiles > 3 {
+			ImageText26x6_Bold(imgRGBA, zoom_size*6/8, zoom_size*7/10, colorText, I2S(numfiles))
 		}
 
 		changed = changed
@@ -477,7 +498,7 @@ func best_file_icons(folderpath string, files []FileReport, maxicons int, zoom_s
 	return imgs, mimes
 }
 
-func replace_mime_images(folderpath string, files []FileReport, imgs []image.Image, mimes []string, zoom_size int, killchan chan *exec.Cmd, req int64) ([]image.Image, bool) {
+func replace_mime_images(folderpath string, files []FileReport, imgs []image.Image, mimes []string, zoom_size int, killchan chan *exec.Cmd, req int64, skip_cached bool) ([]image.Image, bool) {
 	mime_image := PREFIX_DRAWONME + FILE_TYPE_IMAGE
 	mime_video := PREFIX_DRAWONME + FILE_TYPE_MOVIE
 	imgs2 := []image.Image{}
@@ -536,10 +557,22 @@ func replace_mime_images(folderpath string, files []FileReport, imgs []image.Ima
 							}
 							if StringInArray(tfile, MIME_VIDEO) > -1 {
 								zoom_size2 := ZoomSmall(zoom_size)
-								img_new, ok2 := GetPreview_VideoImage(f.FullName, zoom_size2, killchan, req, true)
-								if ok2 {
-									exist = true
-									imgs2 = append(imgs2, img_new)
+								skip_cached_ok := false
+								if skip_cached {
+									img_new := CachePreview_ReadImage(&f, zoom_size2, nil)
+									if img_new != nil {
+										exist = true
+										imgs2 = append(imgs2, img_new)
+										skip_cached_ok = true
+										Prln("not recashing: " + f.FullName)
+									}
+								}
+								if !skip_cached_ok {
+									img_new, ok2 := GetPreview_VideoImage(f.FullName, zoom_size2, killchan, req, true)
+									if ok2 {
+										exist = true
+										imgs2 = append(imgs2, img_new)
+									}
 								}
 							}
 						}
