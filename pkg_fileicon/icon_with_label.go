@@ -23,6 +23,8 @@ const BORDER_SIZE = 8
 
 const GUI_PATH = "gui/"
 
+var Image_LoadingError *image.RGBA
+
 // //get the icon theme and lookup the icon we want by name, here at a size of 64px
 // var info = Gtk.IconTheme.get_default ().lookup_icon ("view-refresh-symbolic", 64, 0);
 // //now load the icon as a symbolic with a color set in the brackets as RGBA, here as plain red
@@ -37,6 +39,7 @@ func init() {
 	pixbuf_loading = GTK_PixBuf_From_Bytes(bb, "png")
 
 	bb, _ = FileBytesRead(appdir + GUI_PATH + "emblem_loading_error.png")
+	Image_LoadingError = ImageDecodeRGBA(bb, color.RGBA{R: 255, G: 0, B: 0, A: 0})
 	pixbuf_loading_err = GTK_PixBuf_From_Bytes(bb, "png")
 
 	bb, _ = FileBytesRead(appdir + GUI_PATH + "emblem_link.png")
@@ -93,7 +96,11 @@ type FileIconBlock struct {
 	isapp    bool
 	islink   bool
 	ishidden bool
-	size     int64
+
+	size          int64
+	date_modified Time
+
+	errored bool
 
 	//rwx      int
 
@@ -102,7 +109,7 @@ type FileIconBlock struct {
 	app_open string
 }
 
-func NewFileIconBlock(filepath string, filename string, wid int, isdir bool, islink bool, notread bool, ismount bool, strinfo string, zoom_init int, size int64) *FileIconBlock {
+func NewFileIconBlock(filepath string, filename string, wid int, isdir bool, islink bool, notread bool, ismount bool, strinfo string, zoom_init int, size int64, date_modified Time) *FileIconBlock {
 	b2 := BORDER_SIZE / 2
 	isHidden := StringPart(filename, 1, 1) == "."
 
@@ -250,12 +257,13 @@ func NewFileIconBlock(filepath string, filename string, wid int, isdir bool, isl
 		name:         name,
 		info:         info,
 
-		fname:    filename,
-		fpath:    filepath,
-		ishidden: isHidden,
-		isdir:    isdir,
-		islink:   islink,
-		size:     size,
+		fname:         filename,
+		fpath:         filepath,
+		ishidden:      isHidden,
+		isdir:         isdir,
+		islink:        islink,
+		size:          size,
+		date_modified: date_modified,
 	}
 	block.SetWidth(wid)
 	return block
@@ -269,12 +277,17 @@ func (i *FileIconBlock) GetSizeBytes() int64 {
 	return i.size
 }
 
+func (i *FileIconBlock) GetDateModified() Time {
+	return i.date_modified
+}
+
 func (i *FileIconBlock) IsDir() bool {
 	return i.isdir
 }
 
 func (i *FileIconBlock) SetLoading(v bool, err bool) {
 	if !err {
+		i.errored = false
 		if v {
 			i.icon_loading.SetFromPixbuf(pixbuf_loading)
 		} else {
@@ -282,7 +295,12 @@ func (i *FileIconBlock) SetLoading(v bool, err bool) {
 		}
 	} else {
 		i.icon_loading.SetFromPixbuf(pixbuf_loading_err)
+		i.errored = true
 	}
+}
+
+func (i *FileIconBlock) GetErrored() bool {
+	return i.errored
 }
 
 func (i *FileIconBlock) SetIconPixPuf(pixbuf_icon *gdk.Pixbuf) {
@@ -342,7 +360,6 @@ func (i *FileIconBlock) SetSelected(v bool) {
 
 func (i *FileIconBlock) GetSelected() bool {
 	return i.check.GetActive()
-
 }
 
 func (i *FileIconBlock) Destroy() {

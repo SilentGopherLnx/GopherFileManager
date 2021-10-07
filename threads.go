@@ -67,7 +67,7 @@ func Thread_Main() {
 		}
 		//if iter > 10 {
 		//	iter = 0
-		mem.SetText(I2S(num_works.Get()) + " processes; RAM Usage: " + F2S(GetPC_MemoryUsageMb(), 1) + " Mb & " + usage + "; displayed:" + I2S(len(arr_blocks)) + "/" + I2S(real_files_count) + " objects")
+		mem.SetText(I2S(num_works.Get()) + " " + langs.GetStr("gui_down_processes") + "; RAM Usage: " + F2S(GetPC_MemoryUsageMb(), 1) + " Mb & " + usage + "; displayed:" + I2S(len(arr_blocks)) + "/" + I2S(real_files_count) + " objects")
 		main_iterations_funcs.ExecAll()
 
 		if num_works.Get() == 0 {
@@ -104,7 +104,6 @@ func Thread_Icon(icon_chan chan *IconUpdateable, qu *SyncQueue, thread_id int) {
 			var skip = false
 			if msg.skip_if_cache_loaded && msg.pixbuf_cache != nil {
 				skip = true
-
 			}
 			if msg.folder {
 				//if !msg.basic_mode {

@@ -124,8 +124,8 @@ func (w *FileListAsync) AllData() ([]*LinuxFileReport, error) {
 func NewFileListAsync_DetectType(path *LinuxPath, search_name string, buffer_size int, notify_period float64) *FileListAsync {
 	buffer := MAXI(1, buffer_size)
 	url := path.GetUrl()
-	is_smb, pc_name, netfolder := SMB_CheckVirtualPath(url)
-	if is_smb {
+	is_smb, pc_name, netfolder, _ := SMB_CheckPath(url)
+	if is_smb && StringLength(pc_name) == 0 {
 		// if search_name != "" {
 		// 	return nil
 		// }
@@ -294,7 +294,12 @@ func NewFileListAsync_Searcher(path_real string, search_name string, notify_peri
 		m := &fileListAsync_search{kill: kill}
 		m.lock = NewSyncMutex()
 		chan_found := make(chan *FileReport, CHAN_BUFFER_SIZE)
-		go FoldersRecursively_Search(mount_list, dir, path_real, search_name, chan_found, kill)
+		searcher_modify := func(str string) string {
+			fname := FoldersRecursively_Search_Default(str)
+			fname = StringReplace(fname, "ё", "е") // russian feature
+			return fname
+		}
+		go FoldersRecursively_Search(mount_list, dir, path_real, search_name, chan_found, kill, searcher_modify)
 		go func() {
 			for {
 				r, ok := <-chan_found

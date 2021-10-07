@@ -24,8 +24,8 @@ func GTK_CopyPasteDnd_SetWindowKeyPressed(path *LinuxPath, key uint, state uint,
 	fnames := FilesSelector_GetList()
 	_, s := hist.GetCurrent()
 	url := path.GetUrl()
-	is_smb, pc_name, netfolder := SMB_CheckVirtualPath(url)
-	if StringLength(s) != 0 || is_smb || (StringLength(pc_name) > 0 && StringLength(netfolder) == 0) {
+	is_smb, _, netfolder, _ := SMB_CheckPath(url)
+	if StringLength(s) != 0 || (is_smb && StringLength(netfolder) == 0) {
 
 	} else {
 		if GTK_KeyboardCtrlState(state) {
@@ -105,6 +105,7 @@ func GTK_CopyPasteDnd_SetAppDest(w *gtk.Widget) {
 	t_uri, _ := gtk.TargetEntryNew("text/uri-list", gtk.TARGET_OTHER_APP, 0)
 	w.DragDestSet(gtk.DEST_DEFAULT_ALL, []gtk.TargetEntry{*t_uri}, gdk.ACTION_COPY)
 	w.Connect("drag-data-received", func(g gtk.IWidget, ctx *gdk.DragContext, x int, y int, selData *gtk.SelectionData, info uint, _ uint) { //data_pointer uintptr
+		drag_mode = false
 		//dnd_str := string(gtk.GetData(data_pointer))// gotk3 lib chanded this
 		dnd_str := string(selData.GetData())
 
@@ -132,13 +133,19 @@ func GTK_CopyPasteDnd_SetIconSource(w *gtk.Widget, icon *gtk.Image, getter func(
 	t_uris := []gtk.TargetEntry{*t_uri_same, *t_uri_other}
 	w.DragSourceSet(gdk.BUTTON1_MASK, t_uris, gdk.ACTION_COPY) //gdk.ACTION_MOVE
 	w.Connect("drag-begin", func(g gtk.IWidget, ctx *gdk.DragContext) {
+		drag_mode = true
 		Prln("d&d: drag-begin")
 		pixbuf := icon.GetPixbuf()
 		w := pixbuf.GetWidth()
 		h := pixbuf.GetHeight()
 		gtk.DragSetIconPixbuf(ctx, pixbuf, w/2, h/2)
 	})
+	/*w.Connect("drag-finish", func(g gtk.IWidget, ctx *gdk.DragContext) {
+		drag_mode = false
+		Prln("d&d: drag-finish") // GLib-GObject-WARNING **: 21:04:50.933: ../../../gobject/gsignal.c:2515: signal 'drag-finished' is invalid for instance '0x38f5f90'
+	})*/
 	w.Connect("drag-data-get", func(g gtk.IWidget, ctx *gdk.DragContext, selData *gtk.SelectionData, _ uint, _ uint) { //data_pointer uintptr
+		drag_mode = false
 		Prln("d&d: drag-data-get")
 		files := getter()
 		cmd := ""
@@ -158,6 +165,7 @@ func GTK_CopyPasteDnd_SetFolderDest(w *gtk.Widget, dest *LinuxPath) {
 	t_uris := []gtk.TargetEntry{*t_uri_same, *t_uri_other}
 	w.DragDestSet(gtk.DEST_DEFAULT_ALL, t_uris, gdk.ACTION_COPY)
 	w.Connect("drag-data-received", func(g gtk.IWidget, ctx *gdk.DragContext, x int, y int, selData *gtk.SelectionData, _ uint, _ uint) { //data_pointer uintptr
+		drag_mode = false
 		//dnd_str := string(gtk.GetData(data_pointer))// gotk3 lib chanded this
 		dnd_str := string(selData.GetData())
 		oper := OPER_MOVE

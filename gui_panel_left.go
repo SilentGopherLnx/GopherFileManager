@@ -60,18 +60,18 @@ func listDiscs(g *gtk.Box) {
 
 		if j == 0 {
 			lbl1.SetMarkup("<b><u>" + HtmlEscape(StringUp(d.PartName)) + "</u></b>")
-			lbl2.SetText(langs.GetStr("gui_home"))
+			lbl2.SetText(langs.GetStr("gui_left_home"))
 		}
 
 		if j == 1 {
-			lbl1.SetMarkup("<b><u>" + HtmlEscape(langs.GetStr("gui_net")) + "</u></b>")
+			lbl1.SetMarkup("<b><u>" + HtmlEscape(langs.GetStr("gui_left_net")) + "</u></b>")
 		}
 
 		extra := StringFind(StringDown(d.PartName), "gvfsd-fuse") > 0
 		if len(StringTrim(d.Model)) > 0 && !extra {
 			lbl3, _ := gtk.LabelNew(d.Model)
 			if j == 1 {
-				lbl3.SetText(langs.GetStr("gui_smb"))
+				lbl3.SetText(langs.GetStr("gui_left_smb"))
 			}
 			lbl3.SetJustify(gtk.JUSTIFY_LEFT)
 			lbl3.SetHAlign(gtk.ALIGN_START)

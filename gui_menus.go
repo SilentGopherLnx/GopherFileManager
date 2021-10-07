@@ -13,8 +13,8 @@ import (
 func GTKMenu_CurrentFolder(menu *gtk.Menu, folderpath LinuxPath, search string) {
 	GTK_Childs(menu, true, true)
 	url := folderpath.GetUrl()
-	is_smb, pc_name, netfolder := SMB_CheckVirtualPath(url)
-	if StringLength(search) > 0 || is_smb || (StringLength(pc_name) > 0 && StringLength(netfolder) == 0) {
+	is_smb, _, netfolder, _ := SMB_CheckPath(url)
+	if StringLength(search) > 0 || (is_smb && StringLength(netfolder) == 0) {
 		return
 	}
 	paste_list, _ := LinuxClipBoard_PasteFiles()
@@ -25,7 +25,7 @@ func GTKMenu_CurrentFolder(menu *gtk.Menu, folderpath LinuxPath, search string) 
 			GTK_CopyPasteDnd_Paste(fp)
 		}
 	}
-	GTK_MenuItem(menu, langs.GetStr("cmd_folder_paste")+" "+I2S(len(paste_list))+langs.GetStr("cmd_of_objects")+" (Ctrl+V)", func_paste)
+	GTK_MenuItem(menu, langs.GetStr("cmd_folder_paste")+" "+I2S(len(paste_list))+" "+langs.GetStr("cmd_of_objects")+" (Ctrl+V)", func_paste)
 	submenu_new := GTK_MenuSub(menu, langs.GetStr("cmd_create"))
 	GTK_MenuItem(submenu_new, langs.GetStr("cmd_create_folder"), func() {
 		name_created := FileOrFolder_New(fp, true)
@@ -44,7 +44,7 @@ func GTKMenu_CurrentFolder(menu *gtk.Menu, folderpath LinuxPath, search string) 
 		})
 	})
 	GTK_MenuSeparator(menu)
-	submenu_refolder := GTK_MenuSub(menu, "Reopen folder")
+	submenu_refolder := GTK_MenuSub(menu, langs.GetStr("cmd_folder_reopen"))
 	GTK_MenuItem(submenu_refolder, "SUDO", nil)
 	GTK_MenuItem(submenu_refolder, "in Terminal", func() {
 		menu.Cancel()
@@ -53,7 +53,7 @@ func GTKMenu_CurrentFolder(menu *gtk.Menu, folderpath LinuxPath, search string) 
 		//a, b, c :=   Prln(a + b + c)
 	})
 	GTK_MenuItem(submenu_refolder, "SUDO in Terminal", nil)
-	GTK_MenuItem(submenu_refolder, "Default File Manager", func() {
+	GTK_MenuItem(submenu_refolder, langs.GetStr("cmd_folder_reopen_default"), func() {
 		menu.Cancel()
 		fm := opt.GetFileManager(fp)
 		go ExecCommandBash(fm)
@@ -81,14 +81,17 @@ func GTKMenu_CurrentFolder(menu *gtk.Menu, folderpath LinuxPath, search string) 
 		sort_mode = 2
 		resort_and_show()
 	})
-	GTK_MenuItem(submenu_sort, "date modified"+" "+B2S(sort_mode == 3, "(v)", ""), nil)
+	GTK_MenuItem(submenu_sort, langs.GetStr("cmd_sort_date")+" "+B2S(sort_mode == 3, "(v)", ""), func() {
+		sort_mode = 3
+		resort_and_show()
+	})
 	GTK_MenuSeparator(menu)
 	GTK_MenuItem(menu, langs.GetStr("cmd_files_info"), func() {
 		Dialog_FileInfo(win, LinuxFileGetParent(fp), []string{FolderPathEndSlash(LinuxFileNameFromPath(fp))})
 	})
 }
 
-func GTKMenu_File(menu *gtk.Menu, fpath string, fname string, isdir bool, isapp bool) {
+func GTKMenu_File(menu *gtk.Menu, fpath string, fname string, isdir bool, isapp bool, errored bool) {
 	fpath2 := FolderPathEndSlash(fpath)
 	ext_mime := FileMIME(fpath2 + fname)
 	app_mime := AppMIME(ext_mime)
@@ -106,7 +109,7 @@ func GTKMenu_File(menu *gtk.Menu, fpath string, fname string, isdir bool, isapp 
 		//GTK_MenuSeparator(rightmenu)
 
 		submenu_openwith := GTK_MenuSub(rightmenu, langs.GetStr("cmd_open_with"))
-		GTK_MenuItem(submenu_openwith, "Text Editor", func() {
+		GTK_MenuItem(submenu_openwith, langs.GetStr("cmd_open_with_texeditor"), func() {
 			OpenFileByApp(fpath2+fname, opt.GetTextEditor())
 		})
 		GTK_MenuItem(submenu_openwith, "HEX Editor", nil)
@@ -140,7 +143,7 @@ func GTKMenu_File(menu *gtk.Menu, fpath string, fname string, isdir bool, isapp 
 				GTK_CopyPasteDnd_Paste(FolderPathEndSlash(fpath2 + fname))
 			}
 		}
-		GTK_MenuItem(rightmenu, langs.GetStr("cmd_folder_paste_into")+" "+I2S(len(paste_list))+langs.GetStr("cmd_of_objects"), func_paste) // (Ctrl+V)
+		GTK_MenuItem(rightmenu, langs.GetStr("cmd_folder_paste_into")+" "+I2S(len(paste_list))+" "+langs.GetStr("cmd_of_objects"), func_paste) // (Ctrl+V)
 	}
 	GTK_MenuItem(rightmenu, langs.GetStr("cmd_file_cut")+" (Ctrl+X)", func() {
 		file1 := NewLinuxPath(false) //??
@@ -173,8 +176,8 @@ func GTKMenu_File(menu *gtk.Menu, fpath string, fname string, isdir bool, isapp 
 	GTK_MenuSeparator(rightmenu)
 	GTK_MenuItem(rightmenu, langs.GetStr("cmd_file_rename")+" (F2)", func() {
 		Dialog_FileRename(win, fpath2, fname, func() {
-			lp := NewLinuxPath(true)
-			lp.SetReal(fpath2)
+			//lp := NewLinuxPath(true)
+			//lp.SetReal(fpath2)
 			//listFiles(gGFiles, lp, false)
 		})
 	})
@@ -201,6 +204,9 @@ func GTKMenu_File(menu *gtk.Menu, fpath string, fname string, isdir bool, isapp 
 		}
 		Dialog_FileInfo(win, fpath2, []string{fname2})
 	})
+	if errored {
+		GTK_MenuItem(rightmenu, "Reload preview", nil)
+	}
 }
 
 func GTKMenu_Files(menu *gtk.Menu, fpath string, fnames []string, isdir bool, isapp bool) {
@@ -251,11 +257,14 @@ func GTKMenu_FileSearchResult(menu *gtk.Menu, isdir bool, fpath string, fname st
 	//GTK_MenuItem(rightmenu, "Info", nil)
 }
 
-func GTKMenu_FileSearchResult_Multiple(menu *gtk.Menu, isdir bool, fpath string, fnames []string) {
+func GTKMenu_FileSearchResult_Multiple(menu *gtk.Menu, isdir bool, fpath string, fnames []string, errored bool) {
 	GTK_MenuItem(rightmenu, langs.GetStr("cmd_files_info"), func() {
 		Dialog_FileInfo(win, FolderPathEndSlash(fpath), fnames)
 	})
 	//GTK_MenuItem(rightmenu, "Info", nil)
+	if errored {
+		GTK_MenuItem(rightmenu, "Reload preview", nil)
+	}
 }
 
 func GTKMenu_SMB(menu *gtk.Menu, pc_name string, folder_name string, mounted bool) {

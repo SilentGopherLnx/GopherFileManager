@@ -84,6 +84,8 @@ var spinnerFiles *gtk.Spinner
 
 var langs *LangArr
 
+var drag_mode = false
+
 func init() {
 
 	RuntimeLockOSThread()
@@ -116,7 +118,7 @@ func main() {
 	defer fswatcher.Close()
 
 	gtk.Init(nil)
-	Prln("gtk_version_get:" + GetGolangVersion())
+	Prln("gtk_version:" + GTK_GetVersion())
 
 	var err error
 	win, err = gtk.WindowNew(gtk.WINDOW_TOPLEVEL)
@@ -366,6 +368,8 @@ func main() {
 		resize_event_no_repeats()
 	}
 
+	spin_title, _ := gtk.LabelNew(langs.GetStr("gui_down_zoom") + ":")
+	spin_title.SetMarkup("<b>" + langs.GetStr("gui_down_zoom") + ":</b>")
 	za := Constant_ZoomArray()
 	spin, _ := gtk.ScaleNewWithRange(gtk.ORIENTATION_HORIZONTAL, 1, float64(len(za)), 1)
 	spin.SetSizeRequest(90, 30)
@@ -455,7 +459,8 @@ func main() {
 	gGDown.Attach(gCheckPreviewCache, 4, 0, 1, 1)
 	gGDown.Attach(gCheckPreviewFolders, 5, 0, 1, 1)
 	gGDown.Attach(gCheckPreviewFiles, 6, 0, 1, 1)
-	gGDown.Attach(spin, 7, 0, 1, 1)
+	gGDown.Attach(spin_title, 7, 0, 1, 1)
+	gGDown.Attach(spin, 8, 0, 1, 1)
 
 	// =================
 
@@ -524,15 +529,16 @@ func disable_focus() {
 func upd_title() {
 	folder_name := path.GetLastNode()
 	url := path.GetUrl()
-	is_smb, pc_name, netfolder := SMB_CheckVirtualPath(url)
+	is_smb, pc_name, netfolder, smb_hasmore := SMB_CheckPath(url)
 	if is_smb {
-		folder_name = "SMB://"
-	}
-	if StringLength(netfolder) > 0 {
-		folder_name = netfolder
-	} else {
-		if StringLength(pc_name) > 0 {
+		if StringLength(pc_name) == 0 {
+			folder_name = "SMB://"
+		}
+		if StringLength(pc_name) > 0 && StringLength(netfolder) == 0 {
 			folder_name = pc_name
+		}
+		if StringLength(netfolder) > 0 && !smb_hasmore {
+			folder_name = netfolder
 		}
 	}
 	search := ""

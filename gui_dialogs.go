@@ -29,7 +29,7 @@ func Dialog_FileRename_ExternalApp(w *gtk.Window, fpath string, fname_old string
 
 func Dialog_FileRename_ThisApp(w *gtk.Window, fpath string, fname_old string, upd func()) {
 	fname_prev := FilePathEndSlashRemove(fname_old)
-	dial, box := GTK_Dialog(w, "Rename: "+fname_prev)
+	dial, box := GTK_Dialog(w, langs.GetStr("dialog_rename_title")+": "+fname_prev)
 	dial.SetDefaultSize(350, 90)
 
 	inpname, _ := gtk.EntryNew()
@@ -42,6 +42,8 @@ func Dialog_FileRename_ThisApp(w *gtk.Window, fpath string, fname_old string, up
 	btnok, _ := gtk.ButtonNewWithLabel("Ok")
 	btnok.SetHExpand(true)
 
+	//var close_dial *ABool = NewAtomicBool(false)
+
 	ok_func := func() {
 		safe_name, _ := inpname.GetText()
 		// Windows (FAT32, NTFS): Any Unicode except NUL, \, /, :, *, ", <, >, |
@@ -51,22 +53,27 @@ func Dialog_FileRename_ThisApp(w *gtk.Window, fpath string, fname_old string, up
 			fpath2 := FolderPathEndSlash(fpath)
 			ok, errtxt := FileRename(fpath2+fname_prev, fpath2+safe_name)
 			if ok {
-				dial.Close()
+				//close_dial.Set(true)
+				//dial.Close()
+				dial.Destroy()
 				if upd != nil {
 					upd()
 				}
 			} else {
-				lbl_err.SetText("Error: " + errtxt)
+				lbl_err.SetText(langs.GetStr("msg_error") + ": " + errtxt)
+				//close_dial.Set(false)
 			}
 		} else {
-			dial.Close()
+			//close_dial.Set(true)
+			//dial.Close()
+			dial.Destroy()
 		}
 	}
 
 	btnok.Connect("button-press-event", ok_func)
 	dial.Connect("key-press-event", func(_ *gtk.Dialog, ev *gdk.Event) {
 		uint_key, _, _ := GTK_KeyboardKeyOfEvent(ev)
-		if uint_key == 65293 { // Enter 65293   gdk.KEY_enter
+		if uint_key == GTK_KEY_Enter() {
 			ok_func()
 		}
 	})
@@ -91,8 +98,13 @@ func Dialog_FileRename_ThisApp(w *gtk.Window, fpath string, fname_old string, up
 		ind--
 	}
 	inpname.SelectRegion(0, ind)
-	dial.Run()
-	dial.Close()
+	//if !close_dial.Get() {
+	//dial.Run()
+	//Prln("!+!+")
+	//dial.Destroy()
+	//}
+	//dial.Close()
+
 }
 
 func Dialog_FileInfo(w *gtk.Window, fpath string, fnames []string) {
@@ -102,9 +114,9 @@ func Dialog_FileInfo(w *gtk.Window, fpath string, fnames []string) {
 	if err == nil {
 		kill := NewAtomicBool(false)
 		if len(fnames) == 1 {
-			win2.SetTitle("Info: \"" + fnames[0] + "\"")
+			win2.SetTitle(langs.GetStr("dialog_fileinfo_title") + ": \"" + fnames[0] + "\"")
 		} else {
-			win2.SetTitle("Info: " + I2S(len(fnames)) + " selected")
+			win2.SetTitle(langs.GetStr("dialog_fileinfo_title") + ": " + I2S(len(fnames)) + " " + langs.GetStr("dialog_fileinfo_title_selected"))
 		}
 		win2.SetDefaultSize(winw, winh)
 		win2.SetPosition(gtk.WIN_POS_CENTER)
@@ -132,15 +144,16 @@ func Dialog_FileInfo(w *gtk.Window, fpath string, fnames []string) {
 			perm = FilePermissionsString(fullname)
 		}
 
-		box_path, _ := GTK_LabelPair("Path: ", fpath)
+		box_path, _ := GTK_LabelPair(langs.GetStr("dialog_fileinfo_path")+": ", fpath)
 
 		names_str := ""
 		for j := 0; j < len(fnames); j++ {
 			names_str += fnames[j] + "\n"
 		}
 
-		lbl_src_title, _ := gtk.LabelNew("Files:")
-		lbl_src_title.SetMarkup("<b>Selected files:</b>")
+		text_selected_files := langs.GetStr("dialog_fileinfo_selected") + ":"
+		lbl_src_title, _ := gtk.LabelNew(text_selected_files)
+		lbl_src_title.SetMarkup("<b>" + text_selected_files + "</b>")
 
 		lbl_src, _ := gtk.LabelNew(names_str)
 		lbl_src.SetHExpand(true)
@@ -153,17 +166,18 @@ func Dialog_FileInfo(w *gtk.Window, fpath string, fnames []string) {
 		//scroll_scr.SetVExpand(true)
 		scroll_scr.SetHExpand(true)
 		scroll_scr.Add(lbl_src)
+		scroll_scr.SetSizeRequest(0, 50)
 
-		frame, _ := gtk.FrameNew("Selected files:")
+		frame, _ := gtk.FrameNew(text_selected_files)
 		frame.SetLabelWidget(lbl_src_title)
 		frame.Add(scroll_scr)
 
-		box_size, lbl_size := GTK_LabelPair("Size: ", "calculating...")
-		box_filse, lbl_files := GTK_LabelPair("Objects: ", "calculating...")
+		box_size, lbl_size := GTK_LabelPair(langs.GetStr("dialog_fileinfo_size")+": ", langs.GetStr("dialog_fileinfo_calculating"))
+		box_filse, lbl_files := GTK_LabelPair(langs.GetStr("dialog_fileinfo_objects")+": ", langs.GetStr("dialog_fileinfo_calculating"))
 		part_name, _ := LinuxFilePartition(mountlist, fpath)
-		box_disk, _ := GTK_LabelPair("Disk: ", part_name)
-		box_mime, _ := GTK_LabelPair("Mime type: ", mime)
-		box_perm, _ := GTK_LabelPair("Permissions: ", perm)
+		box_disk, _ := GTK_LabelPair(langs.GetStr("dialog_fileinfo_disk")+": ", part_name)
+		box_mime, _ := GTK_LabelPair(langs.GetStr("dialog_fileinfo_mime")+": ", mime)
+		box_perm, _ := GTK_LabelPair(langs.GetStr("dialog_fileinfo_permissions")+": ", perm)
 		go func() {
 			for j := 0; j < len(fnames); j++ {
 				path_info := FolderPathEndSlash(fpath) + fnames[j]
@@ -189,14 +203,15 @@ func Dialog_FileInfo(w *gtk.Window, fpath string, fnames []string) {
 
 		upd_info := func() {
 			sel_size := src_size.Get()
-			lbl_size.SetText(FileSizeNiceString(sel_size) + " (" + I2Ss(sel_size) + " bytes)")
+			lbl_size.SetText(FileSizeNiceString(sel_size) + " (" + I2Ss(sel_size) + " " + langs.GetStr("dialog_fileinfo_bytes") + ")")
 			sel_files := src_files.Get()
 			sel_folders := src_folders.Get()
 			sel_failed := src_failed.Get()
 			sel_irregular := src_irregular.Get()
 			sel_mount := src_mount.Get()
 			sel_symlinks := src_symlinks.Get()
-			lbl_files.SetText(I2S64(sel_files+sel_folders) + " (" + I2S64(sel_files) + " files & " + I2S64(sel_folders) + " folders) " +
+			lbl_files.SetText(I2S64(sel_files+sel_folders) +
+				" (" + I2S64(sel_files) + " " + langs.GetStr("dialog_fileinfo_files") + " & " + I2S64(sel_folders) + " " + langs.GetStr("dialog_fileinfo_folders") + ") " +
 				"\n" + I2S64(sel_failed) + " folders content is blocked for reading" +
 				"\n+ " + I2S64(sel_irregular) + " irregular files, " + I2S64(sel_mount) + " mount points, " + I2S64(sel_symlinks) + " symlinks")
 		}
@@ -215,7 +230,7 @@ func Dialog_FileInfo(w *gtk.Window, fpath string, fnames []string) {
 
 func Dialog_FolderError(w *gtk.Window, err error, path_visual string) {
 	Prln("ERROR DIALOG")
-	dial, box := GTK_Dialog(w, "Error")
+	dial, box := GTK_Dialog(w, langs.GetStr("dialog_error_title"))
 
 	lbl_err, _ := gtk.LabelNew(StringFill(err.Error(), 20))
 
@@ -229,7 +244,7 @@ func Dialog_FolderError(w *gtk.Window, err error, path_visual string) {
 }
 
 func Dialog_Message(w *gtk.Window, text string) {
-	dial, box := GTK_Dialog(w, "Message")
+	dial, box := GTK_Dialog(w, langs.GetStr("dialog_message_title"))
 
 	lbl_err, _ := gtk.LabelNew(StringFill(text, 20))
 
@@ -262,7 +277,7 @@ func Dialog_Mount(w *gtk.Window, pc_name string, folder_name string, mount bool)
 		fswatcher.EmulateUpdate()
 	}()
 
-	dial, box := GTK_Dialog(w, "Mounting")
+	dial, box := GTK_Dialog(w, langs.GetStr("dialog_mounting_title"))
 
 	lbl, _ := gtk.LabelNew(StringFill("Wait some time and close this window.\nUse default file manager if you have password and it's not saved in system", 20))
 

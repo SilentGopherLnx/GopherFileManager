@@ -40,6 +40,14 @@ var async *FileListAsync
 
 func listFiles(g *gtk.Grid, lpath *LinuxPath, scroll_reset bool, save_history bool) {
 
+	need_mount, pc_name, netfolder, _ := SMB_CheckCanMount(lpath.GetUrl(), mountlist)
+	if need_mount {
+		//Prln("TODO: Add auto-mount here")
+		Dialog_Mount(win, pc_name, netfolder, true)
+		//mountlist = LinuxGetMountList()
+		listDiscs(gGDiscs)
+	}
+
 	//GarbageCollection()
 
 	search, _ := gInpSearch.GetText()
@@ -50,8 +58,8 @@ func listFiles(g *gtk.Grid, lpath *LinuxPath, scroll_reset bool, save_history bo
 	upd_title()
 
 	url := lpath.GetUrl()
-	is_smb, pc_name, netfolder := SMB_CheckVirtualPath(url)
-	if is_smb || (StringLength(pc_name) > 0 && StringLength(netfolder) == 0) {
+	is_smb, _, netfolder, _ := SMB_CheckPath(url)
+	if is_smb && StringLength(netfolder) == 0 {
 		listDiscs(gGDiscs)
 	}
 
@@ -87,7 +95,7 @@ func listFiles(g *gtk.Grid, lpath *LinuxPath, scroll_reset bool, save_history bo
 	async = NewFileListAsync_DetectType(path, StringTrim(search), 5, 0.2)
 	if async == nil {
 		Prln("!!! async=nil")
-		iconwithlabel := NewFileIconBlock(lpath.GetReal(), "ERROR!", 400, false, false, false, false, "???", ZOOM_SIZE, 0)
+		iconwithlabel := NewFileIconBlock(lpath.GetReal(), "ERROR!", 400, false, false, false, false, "???", ZOOM_SIZE, 0, TimeNow())
 		arr_blocks = append(arr_blocks, iconwithlabel)
 		g.Attach(iconwithlabel.GetWidgetMain(), 1, 1, 1, 1)
 		g.ShowAll()
@@ -95,7 +103,7 @@ func listFiles(g *gtk.Grid, lpath *LinuxPath, scroll_reset bool, save_history bo
 	}
 }
 
-func AddFilesToList(g *gtk.Grid, files []*LinuxFileReport, lpath2 string, req int64) {
+func AddFilesToList(g *gtk.Grid, files []*LinuxFileReport, path_real string, req int64) {
 
 	n_now := len(arr_blocks)
 	n_max := opt.GetFolderLimit()
@@ -105,9 +113,9 @@ func AddFilesToList(g *gtk.Grid, files []*LinuxFileReport, lpath2 string, req in
 
 	single_thread_protocol := false
 	with_extra_info := true
-	if StringFind(lpath2, "/run/user/") == 1 {
+	if StringFind(path_real, "/run/user/") == 1 {
 		single_thread_protocol = true
-		if StringFind(lpath2, "/gvfs/smb-share:") > 1 {
+		if StringFind(path_real, "/gvfs/smb-share:") > 1 {
 			single_thread_protocol = false
 		} else {
 			Prln("single_thread_protocol TRUE")
@@ -129,7 +137,7 @@ func AddFilesToList(g *gtk.Grid, files []*LinuxFileReport, lpath2 string, req in
 			n_now -= 1
 			break
 		}
-		diff := FolderPathDiff(lpath2, f.FullName.GetReal())
+		diff := FolderPathDiff(path_real, f.FullName.GetReal())
 		fname := diff + f.NameOnly
 		fname_only := f.NameOnly
 		isdir := f.IsDirectory
@@ -139,10 +147,10 @@ func AddFilesToList(g *gtk.Grid, files []*LinuxFileReport, lpath2 string, req in
 		//oldbuf := false
 
 		if islink {
-			isdir = FileLinkIsDir(lpath2 + fname)
+			isdir = FileLinkIsDir(path_real + fname)
 		}
 
-		filepathfinal := lpath2 + fname
+		filepathfinal := path_real + fname
 		if isdir {
 			filepathfinal = FolderPathEndSlash(filepathfinal)
 		}
@@ -167,8 +175,8 @@ func AddFilesToList(g *gtk.Grid, files []*LinuxFileReport, lpath2 string, req in
 			inf = inf + FileSizeNiceString(f.SizeBytes) //F2S(float64(f.Size())/float64(BytesInMb), 1) + "Mb"
 		}
 
-		ismount := LinuxFolderIsMountPoint(mountlist, lpath2+fname) || SMB_IsMount(path, fname, mountlist)
-		iconwithlabel := NewFileIconBlock(lpath2, fname, icon_block_max_w, isdir, islink, not_read, ismount, inf, ZOOM_SIZE, f.SizeBytes)
+		ismount := LinuxFolderIsMountPoint(mountlist, path_real+fname) || SMB_IsMounted(path, fname, mountlist)
+		iconwithlabel := NewFileIconBlock(path_real, fname, icon_block_max_w, isdir, islink, not_read, ismount, inf, ZOOM_SIZE, f.SizeBytes, f.ModTime)
 
 		if isdir {
 			if filepathfinal == opt.GetHashFolder() {
@@ -177,7 +185,7 @@ func AddFilesToList(g *gtk.Grid, files []*LinuxFileReport, lpath2 string, req in
 				iconwithlabel.SetIconPixPuf(GetIcon_PixBif(ZOOM_SIZE, "", true))
 			}
 			dest := NewLinuxPath(true)
-			dest.SetReal(lpath2 + fname)
+			dest.SetReal(path_real + fname)
 			GTK_CopyPasteDnd_SetFolderDest(iconwithlabel.GetWidgetMain(), dest)
 		} else {
 			tfile := FileExtension(fname)
@@ -204,14 +212,14 @@ func AddFilesToList(g *gtk.Grid, files []*LinuxFileReport, lpath2 string, req in
 		}
 
 		srcfile := NewLinuxPath(isdir)
-		srcfile.SetReal(lpath2 + fname)
+		srcfile.SetReal(path_real + fname)
 		getter := func() []*LinuxPath {
 			list := []*LinuxPath{}
 			fnames := FilesSelector_GetList()
 			if len(fnames) > 1 {
 				for j := 0; j < len(fnames); j++ {
 					file1 := NewLinuxPath(false) //??
-					file1.SetReal(lpath2 + fnames[j])
+					file1.SetReal(path_real + fnames[j])
 					list = append(list, file1)
 				}
 			} else {
@@ -240,12 +248,6 @@ func AddFilesToList(g *gtk.Grid, files []*LinuxFileReport, lpath2 string, req in
 						//path, _ = gInpPath.GetText()
 						//path.SetReal(path.GetReal() + txtlbl)
 
-						auto_mount := false
-						_, pc_name, netfolder := SMB_CheckVirtualPath(path.GetUrl())
-						if !ismount && StringLength(pc_name) > 0 && StringLength(netfolder) == 0 {
-							auto_mount = true
-						}
-
 						path.GoDeeper(txtlbl)
 						if opt.GetSymlinkEval() && !path.GetParseProblems() {
 							r2, err := FileEvalSymlinks(path.GetReal())
@@ -256,10 +258,11 @@ func AddFilesToList(g *gtk.Grid, files []*LinuxFileReport, lpath2 string, req in
 						gInpPath.SetText(path.GetVisual())
 						gInpSearch.SetText("")
 
-						if auto_mount {
+						/*need_mount, pc_name, folder := SMB_CheckCanMount(path.GetUrl(), mountlist)
+						if need_mount {
 							//Prln("TODO: Add auto-mount here")
-							Dialog_Mount(win, pc_name, txtlbl, true)
-						}
+							Dialog_Mount(win, pc_name, folder, true)
+						}*/
 
 						listFiles(gGFiles, path, true, true)
 					} else {
@@ -297,21 +300,21 @@ func AddFilesToList(g *gtk.Grid, files []*LinuxFileReport, lpath2 string, req in
 				}
 				if diff == "" {
 					url := path.GetUrl()
-					is_smb, pc_name, netfolder := SMB_CheckVirtualPath(url)
-					if is_smb || (StringLength(pc_name) > 0 && StringLength(netfolder) == 0) {
+					is_smb, pc_name, netfolder, _ := SMB_CheckPath(url)
+					if is_smb && StringLength(netfolder) == 0 {
 						GTKMenu_SMB(rightmenu, pc_name, fname, ismount)
 					} else {
 						if len(sel_list) <= 1 {
-							GTKMenu_File(rightmenu, lpath2, fname, isdir, isapp)
+							GTKMenu_File(rightmenu, path_real, fname, isdir, isapp, iconwithlabel.GetErrored())
 						} else {
-							GTKMenu_Files(rightmenu, lpath2, sel_list, isdir, isapp)
+							GTKMenu_Files(rightmenu, path_real, sel_list, isdir, isapp)
 						}
 					}
 				} else {
 					if len(sel_list) <= 1 {
-						GTKMenu_FileSearchResult(rightmenu, isdir, lpath2+diff, fname_only)
+						GTKMenu_FileSearchResult(rightmenu, isdir, path_real+diff, fname_only)
 					} else {
-						GTKMenu_FileSearchResult_Multiple(rightmenu, isdir, lpath2, sel_list)
+						GTKMenu_FileSearchResult_Multiple(rightmenu, isdir, path_real, sel_list, iconwithlabel.GetErrored())
 					}
 				}
 
@@ -404,8 +407,9 @@ func AddFilesToList(g *gtk.Grid, files []*LinuxFileReport, lpath2 string, req in
 		for j := 0; j < len(arr_render); j++ {
 			if req == req_id.Get() {
 				arr_render[j].req = req
-				need_update_by_timeout := opt.GetPreviewUpdateTime() > -1
-				if arr_render[j].pixbuf_cache != nil || need_update_by_timeout {
+				utime := opt.GetPreviewUpdateTime()
+				need_update_by_timeout := utime > -1
+				if !need_update_by_timeout { // arr_render[j].pixbuf_cache != nil ||
 					arr_render[j].skip_if_cache_loaded = true
 				}
 				if single_thread_protocol {
@@ -442,6 +446,13 @@ func resort_and_show() {
 			size2 := arr_blocks[j].GetSizeBytes()
 			if size1 != size2 {
 				return XOR(size1 < size2, sort_reverse)
+			}
+		}
+		if sort_mode == 3 {
+			time1 := arr_blocks[i].GetDateModified()
+			time2 := arr_blocks[j].GetDateModified()
+			if time1 != time2 {
+				return XOR(TimeIsSorted(time1, time2), sort_reverse)
 			}
 		}
 		if name1 != name2 {

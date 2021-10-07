@@ -88,9 +88,10 @@ App is under development and looks freaky
 - 0.3.0 - async file list loading! searching files! network listing! movie files length on icon
 - 0.3.1 - smb mount, path history, search results menus
 - 0.3.2 - mouse selecting with Ctrl button, fixing unnecessary menu's bugs
-- **0.3.3** - fixing for install and compile from source code by **go get**
+- 0.3.3 - fixing for install and compile from source code by **go get**
 - **0.4.0** - multi-language support(+russian), checking for new verison button, fix for latest gtk release, fixing for multi-language keyboard hotkeys (Ctrl+C,Ctrl+X,Ctrl+V),renaming gialog moved to helper app
-- **0.4.1** - fix for gotk3 0.6.1 (was uncompileable in selectionData) and golang 1.17 (url parsing works differently); add: count of files on folder preview, sort files by size, option to select preview update time (always-never) and app for rename dialog
+- **0.4.1** - fix for **gotk3 0.6.1** (was uncompileable in selectionData) and **golang 1.17** (url parsing works differently); add: count of files on folder preview, sort files by size, option to select preview update time (always-never) and app for rename dialog
+- **0.4.2** - easier smb mounting, movie height on preview, sorting by file date, folder preview error icon, more language translation
 
 # Platform & License:
 **Only Linux!** Tested mostly on amd64 on Cinnamon desktop (Linux Mint ~~19~~20.2). 
@@ -104,7 +105,7 @@ Windows/MasOS support is NOT planned
 # Some configurations for good work:
 Open "View/Options" and change if you need:
  - Path to **FileMoverGui** app on golang
- - Path to **hash folder** for trumbnails. Create it if not exist or choose another! 
+ - Path to **cache folder** for trumbnails. Create it if not exist or choose another! 
  - System file manager name ("nemo" is default)
  - System terminal name ("gnome-terminal" is default)
 

@@ -56,12 +56,16 @@ func getConfigValue(allinfo []string, name string, skip string) string {
 
 // sudo apt install ffmpeg
 // sudo apt install ffprobe
-func GetVideoPreviewBytes(filename string, zoom_size int, killchan chan *exec.Cmd) (*[]byte, int) {
+func GetVideoPreviewBytes(filename string, zoom_size int, killchan chan *exec.Cmd) (*[]byte, int, int) {
 	info, _, _ := ExecCommand("ffprobe", "-i", filename, "-show_format", "-show_streams")
 	//Prln("[" + filename + "]:" + info)
 	info_arr := StringSplitLines(info)
 	w_old := S2I(getConfigValue(info_arr, "width=", "0"))
 	h_old := S2I(getConfigValue(info_arr, "height=", "0"))
+	if w_old == 0 || h_old == 0 {
+		w_old = S2I(getConfigValue(info_arr, "coded_width=", "0"))
+		h_old = S2I(getConfigValue(info_arr, "coded_height=", "0"))
+	}
 	seconds_str1 := getConfigValue(info_arr, "duration=", "N/A")
 	seconds_str2 := seconds_str1
 	ind := StringFind(seconds_str2, ".")
@@ -99,7 +103,7 @@ func GetVideoPreviewBytes(filename string, zoom_size int, killchan chan *exec.Cm
 		"-f", "singlejpeg", "-")
 
 	//Prln("BYTES:" + string(bb))
-	return &bb, duration
+	return &bb, duration, h_old
 }
 
 func GetPreview_VideoPixBuf(filename string, zoom_size int, killchan chan *exec.Cmd, req int64, save_hash bool) (*gdk.Pixbuf, bool) {
@@ -116,7 +120,7 @@ func GetPreview_VideoImage(filename string, zoom_size int, killchan chan *exec.C
 
 	zoom_max := Constant_ZoomMax()
 
-	fbytes, dur := GetVideoPreviewBytes(filename, zoom_max, killchan)
+	fbytes, dur, height := GetVideoPreviewBytes(filename, zoom_max, killchan)
 	if len(*fbytes) == 0 {
 		return nil, false
 	}
@@ -125,8 +129,12 @@ func GetPreview_VideoImage(filename string, zoom_size int, killchan chan *exec.C
 		return nil, false
 	}
 	img := ImageDecodeRGBA(fbytes, colorTransp)
-	txt := "~" + I2S(RoundF(float64(dur)/60.0)) + "m"
-	ImageText26x6_Bold(img, 5, 5, colorText, txt)
+	//txt := "~" + I2S(RoundF(float64(dur)/60.0)) + "m"
+	txt := "" + I2S(dur/60) + ":" + StringEnd("00"+I2S(dur%60), 2)
+	ImageText7x13_Bold(img, 4, 8, colorText, txt, false)
+	if height > 0 {
+		ImageText7x13_Bold(img, img.Bounds().Max.X-4, img.Bounds().Max.Y-8, colorText, I2S(height)+"p", true)
+	}
 	if save_hash && !InterfaceNil(img) {
 		info, err := FileInfo(filename, false)
 		if err == nil {
@@ -136,27 +144,41 @@ func GetPreview_VideoImage(filename string, zoom_size int, killchan chan *exec.C
 	return GetPreview_ImageImage(img, zoom_size)
 }
 
-func ImageText26x6_Bold(img *image.RGBA, x, y int, col color.RGBA, label string) {
+func ImageText7x13_Bold(img *image.RGBA, x, y int, col color.RGBA, label string, right_align bool) {
 	colorBlack := color.RGBA{0, 0, 0, 255}
 	for j := y - 1; j <= y+1; j++ {
 		for i := x - 1; i <= x+1; i++ {
 			if !(i == x && j == y) {
-				ImageText26x6(img, i, j, colorBlack, label)
+				ImageText7x13(img, i, j, colorBlack, label, right_align)
 			}
 		}
 	}
-	ImageText26x6(img, x, y, col, label)
+	ImageText7x13(img, x, y, col, label, right_align)
 }
 
-func ImageText26x6(img *image.RGBA, x, y int, col color.RGBA, label string) {
-	point := fixed.Point26_6{fixed.Int26_6(x * 64), fixed.Int26_6((y + 10) * 64)}
+// https://progi.pro/kak-dobavit-prostuyu-tekstovuyu-metku-k-izobrazheniyu-v-go-6297209
+func ImageText7x13(img *image.RGBA, x, y int, col color.RGBA, label string, right_align bool) {
+	yd := 5
+	point := fixed.Point26_6{fixed.Int26_6(x * 64), fixed.Int26_6((y + yd) * 64)}
 	d := &font.Drawer{
 		Dst:  img,
 		Src:  image.NewUniform(col),
 		Face: basicfont.Face7x13,
 		Dot:  point,
 	}
-	d.DrawString(label)
+	if !right_align {
+		d.DrawString(label)
+	} else {
+		m := d.MeasureString(label)
+		point2 := fixed.Point26_6{fixed.Int26_6((x - m.Round()) * 64), fixed.Int26_6((y + yd) * 64)}
+		d2 := &font.Drawer{
+			Dst:  img,
+			Src:  image.NewUniform(col),
+			Face: basicfont.Face7x13,
+			Dot:  point2,
+		}
+		d2.DrawString(label)
+	}
 }
 
 /*func ImageText52x12(img *image.RGBA, x, y int, col color.RGBA, label string) {
@@ -384,11 +406,11 @@ func GetPixBufGTK_Folder(folderpath string, zoom_size int, basic_mode bool, qu *
 		}
 
 		if numdirs > 2 {
-			ImageText26x6_Bold(imgRGBA, zoom_size/8, zoom_size*2/5, colorText, I2S(numdirs))
+			ImageText7x13_Bold(imgRGBA, zoom_size/10, zoom_size*5/10, colorText, I2S(numdirs), false)
 			//ImageText52x12(imgRGBA, zoom_size/8, zoom_size*2/5, colorText, I2S(numdirs))
 		}
 		if numfiles > 3 {
-			ImageText26x6_Bold(imgRGBA, zoom_size*6/8, zoom_size*7/10, colorText, I2S(numfiles))
+			ImageText7x13_Bold(imgRGBA, zoom_size*9/10, zoom_size*8/10, colorText, I2S(numfiles), true)
 		}
 
 		changed = changed
@@ -407,6 +429,12 @@ func GetPixBufGTK_Folder(folderpath string, zoom_size int, basic_mode bool, qu *
 				}
 			}
 		}()*/
+	} else {
+		if Image_LoadingError != nil {
+			ImageAddOver(imgRGBA, Image_LoadingError,
+				(imgRGBA.Bounds().Max.X-Image_LoadingError.Bounds().Max.X)/2,
+				(imgRGBA.Bounds().Max.Y-Image_LoadingError.Bounds().Max.Y)/2)
+		}
 	}
 
 	if numfiles > 0 || numdirs > 0 {
